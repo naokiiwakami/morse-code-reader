@@ -1,12 +1,12 @@
-#include "morse_reader.h"
+#include "morse_timing_tracker.h"
 
-MorseReader::MorseReader(MorseDecoder *decoder)
+MorseTimingTracker::MorseTimingTracker(MorseDecoder *decoder)
     : decoder_{decoder}, clock_(0), state_(IDLE), estimated_dit_length_(7),
       dit_count_(0), sum_dit_length_(0) {}
 
-MorseReader::~MorseReader() { delete decoder_; }
+MorseTimingTracker::~MorseTimingTracker() { delete decoder_; }
 
-void MorseReader::Proceed() {
+void MorseTimingTracker::Proceed() {
   ++clock_;
   if (state_ == LOW && clock_ > estimated_dit_length_ * 2.2) {
     decoder_->Break();
@@ -19,7 +19,7 @@ void MorseReader::Proceed() {
   }
 }
 
-void MorseReader::Rise() {
+void MorseTimingTracker::Rise() {
   if (state_ == LOW) {
     dit_count_ += 1;
     sum_dit_length_ += clock_;
@@ -29,7 +29,7 @@ void MorseReader::Rise() {
   clock_ = 0;
 }
 
-void MorseReader::Fall() {
+void MorseTimingTracker::Fall() {
   if (clock_ < estimated_dit_length_ * 1.5) {
     decoder_->Dit();
     dit_count_ += 1;

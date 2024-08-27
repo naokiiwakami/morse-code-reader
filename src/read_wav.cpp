@@ -7,7 +7,7 @@
 
 #include "default_decoder.h"
 #include "fft.h"
-#include "morse_reader.h"
+#include "morse_timing_tracker.h"
 
 #define SAMPLES_PER_FETCH 256
 #define WINDOW_SIZE (SAMPLES_PER_FETCH * 2)
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
   float threshold = 3.0e12;
   int prev_value = 0;
 
-  auto reader = new MorseReader(new DefaultMorseDecoder{});
+  auto timing_tracker = new MorseTimingTracker(new DefaultMorseDecoder{});
 
   do {
     num_samples = sf_read_short(sndfile, current_buffer, SAMPLES_PER_FETCH);
@@ -109,19 +109,19 @@ int main(int argc, char *argv[]) {
       temp_data[i].Re = value;
       current = next;
     }
-    reader->Proceed();
+    timing_tracker->Proceed();
     if (value && !prev_value) {
-      reader->Rise();
+      timing_tracker->Rise();
     }
     if (!value && prev_value) {
-      reader->Fall();
+      timing_tracker->Fall();
     }
     ++i_win;
     prev_value = value;
   } while (num_samples == SAMPLES_PER_FETCH);
   printf("\n");
 
-  delete reader;
+  delete timing_tracker;
 
   return 0;
 }
