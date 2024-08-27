@@ -3,14 +3,7 @@
 
 #include <cstdint>
 
-class MorseDecoder {
-public:
-  virtual ~MorseDecoder() {}
-  virtual void Dit() = 0;
-  virtual void Dah() = 0;
-  virtual void Break() = 0;
-  virtual void Space() = 0;
-};
+#include "morse_decoder.h"
 
 enum ReaderState {
   IDLE,
