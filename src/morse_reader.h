@@ -26,8 +26,8 @@ public:
 
   MorseReader *Verbose(bool value = true);
 
-  void Read(short prev_buffer[], short current_buffer[],
-            size_t current_buffer_size);
+  void Process(short prev_buffer[], short current_buffer[],
+               size_t current_buffer_size);
 
 private:
   void MakeBlackmanNuttallWindow(size_t window_size, float window[]);

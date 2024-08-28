@@ -1,8 +1,14 @@
-# We will build the fft and
-# run main which has test cases
+PROGRAM = read_morse
 
-read_wav : read_wav.o fft.o morse_reader.o morse_timing_tracker.o default_decoder.o
-	$(CXX) ${LDFLAGS} -o read_wav read_wav.o fft.o morse_reader.o morse_timing_tracker.o default_decoder.o -lsndfile -lm
+OBJECT_FILES = \
+	$(PROGRAM).o \
+	default_decoder.o \
+	fft.o \
+	morse_reader.o \
+	morse_timing_tracker.o 
+
+$(PROGRAM) : $(OBJECT_FILES)
+	$(CXX) ${LDFLAGS} -o $(PROGRAM) $(OBJECT_FILES) -lsndfile -lm -lpulse -lpulse-simple
 
 %.o : %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -g -Wall -I /home/naoki/local/include -c $< -o $@
@@ -11,4 +17,4 @@ read_wav : read_wav.o fft.o morse_reader.o morse_timing_tracker.o default_decode
 	$(CXX) $(CXXFLAGS) -g -Wall -I /home/naoki/local/include -c $< -o $@
 
 clean:
-	rm -f *.o read_wav
+	rm -f *.o $(PROGRAM)

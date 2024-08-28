@@ -28,8 +28,8 @@ MorseReader *MorseReader::Verbose(bool value) {
   return this;
 }
 
-void MorseReader::Read(short prev_buffer[], short current_buffer[],
-                       size_t current_buffer_size) {
+void MorseReader::Process(short prev_buffer[], short current_buffer[],
+                          size_t current_buffer_size) {
   MakeInputData(input_data_, window_, prev_buffer, current_buffer,
                 current_buffer_size);
   fft(input_data_, window_size_ * 2, temp_data_);

@@ -1,20 +1,33 @@
+/*
+ * Decoder implementation inspired by Chris Wellons
+ * https://nullprogram.com/blog/2020/12/31/
+ */
 #include "default_decoder.h"
 
 #define ERR 0x1
 
 DefaultMorseDecoder::DefaultMorseDecoder() : state_(0) {}
 
-void DefaultMorseDecoder::Dit() { state_ = Decode(state_, '.'); }
+void DefaultMorseDecoder::Dit() {
+  printf(".");
+  fflush(stdout);
+  state_ = Decode(state_, '.');
+}
 
-void DefaultMorseDecoder::Dah() { state_ = Decode(state_, '-'); }
+void DefaultMorseDecoder::Dah() {
+  printf("-");
+  fflush(stdout);
+  state_ = Decode(state_, '-');
+}
 
 void DefaultMorseDecoder::Break() {
   state_ = Decode(state_, 0);
   if (state_ > 1) {
-    printf("%c", state_);
+    printf(" %c   ", state_);
   } else {
-    printf("?");
+    printf(" ?   ");
   }
+  fflush(stdout);
   state_ = 0;
 }
 

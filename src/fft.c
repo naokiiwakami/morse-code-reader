@@ -1,3 +1,9 @@
+/*
+ * Implementation adapted from Mladen Victor Wickerhauser's book
+ * "Mathematics for Multimedia"
+ * https://www.math.wustl.edu/~victor/mfmm/fourier/fft.c
+ */
+
 /* Factored discrete Fourier transform, or FFT, and its inverse iFFT */
 
 #include <assert.h>
@@ -12,18 +18,6 @@
 
 #ifndef PI
 #define PI 3.14159265358979323846264338327950288
-#endif
-
-#if 0
-/* Print a vector of complexes as ordered pairs. */
-static void print_vector(const char *title, complex *x, int n) {
-  int i;
-  printf("%s (dim=%d):", title, n);
-  for (i = 0; i < n; i++)
-    printf(" %5.2f,%5.2f ", x[i].Re, x[i].Im);
-  putchar('\n');
-  return;
-}
 #endif
 
 /*
@@ -103,37 +97,3 @@ void ifft(complex *v, int n, complex *tmp) {
   }
   return;
 }
-
-#if 0
-int
-main(void)
-{
-  complex v[N], v1[N], scratch[N];
-  int k;
-
-  /* Fill v[] with a function of known FFT: */
-  for(k=0; k<N; k++) {
-    v[k].Re = 0.125*cos(2*PI*k/(double)N);
-    v[k].Im = 0.125*sin(2*PI*k/(double)N);
-    v1[k].Re =  0.3*cos(2*PI*k/(double)N);
-    v1[k].Im = -0.3*sin(2*PI*k/(double)N);
-  }
-    
-  /* FFT, iFFT of v[]: */
-  print_vector("Orig", v, N);
-  fft( v, N, scratch );
-  print_vector(" FFT", v, N);
-  ifft( v, N, scratch );
-  print_vector("iFFT", v, N);
-
-  /* FFT, iFFT of v1[]: */
-  print_vector("Orig", v1, N);
-  fft( v1, N, scratch );
-  print_vector(" FFT", v1, N);
-  ifft( v1, N, scratch );
-  print_vector("iFFT", v1, N);
-
-  exit(EXIT_SUCCESS);
-}
-
-#endif
