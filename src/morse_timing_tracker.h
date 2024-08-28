@@ -17,6 +17,7 @@ private:
   MorseDecoder *decoder_;
   uint32_t clock_;
   ReaderState state_;
+  int32_t last_interval_;
   uint32_t estimated_dit_length_;
   uint32_t dit_count_;
   float sum_dit_length_;

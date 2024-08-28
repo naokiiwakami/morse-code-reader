@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
   }
   auto sound_file_name = argv[1];
 
-  SF_INFO sf_info;
+  SF_INFO sf_info = {0};
   SNDFILE *sndfile;
   sndfile = sf_open(sound_file_name, SFM_READ, &sf_info);
   if (sndfile == nullptr) {
@@ -74,9 +74,9 @@ int main(int argc, char *argv[]) {
   current_buffer = buffers[1];
   memset(prev_buffer, 0, sizeof(short));
   sf_count_t num_samples;
-  auto *reader = new MorseReader(new DefaultMorseDecoder{}, SAMPLES_PER_FETCH);
-  // auto *reader =
-  //     new MorseReader(new StubMorseDecoder{false}, SAMPLES_PER_FETCH);
+  auto *decoder = new DefaultMorseDecoder{};
+  // auto *decoder = new StubMorseDecoder{false};
+  auto *reader = new MorseReader(decoder, SAMPLES_PER_FETCH);
   reader->Verbose(false);
 
   bool first = true;
@@ -93,6 +93,7 @@ int main(int argc, char *argv[]) {
   printf("\n");
 
   delete reader;
+  sf_close(sndfile);
 
   return 0;
 }
