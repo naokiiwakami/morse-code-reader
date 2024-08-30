@@ -8,6 +8,8 @@
 
 #define ERR 0x1
 
+namespace morse {
+
 DefaultMorseDecoder::DefaultMorseDecoder() : state_(0) {}
 
 void DefaultMorseDecoder::Subscribe(EventListener *listener) {
@@ -68,3 +70,5 @@ int DefaultMorseDecoder::Decode(int state, int c) {
     return ERR;
   }
 }
+
+} // namespace morse

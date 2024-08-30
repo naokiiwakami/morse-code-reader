@@ -5,6 +5,8 @@
 
 #include <string>
 
+namespace morse {
+
 enum class EventType {
   SIGNAL,
   OUT,
@@ -27,5 +29,7 @@ public:
     fflush(stdout);
   }
 };
+
+} // namespace morse
 
 #endif // EVENT_LISTENER_H_

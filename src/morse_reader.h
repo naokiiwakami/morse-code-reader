@@ -6,6 +6,8 @@
 
 #include "morse_decoder.h"
 
+namespace morse {
+
 enum ReaderState {
   IDLE,
   HIGH,
@@ -30,5 +32,7 @@ public:
   void Rise();
   void Fall();
 };
+
+} // namespace morse
 
 #endif // MORSE_READER_H_

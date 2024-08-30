@@ -25,6 +25,8 @@
 #define BUFFER_SIZE 256
 #define WINDOW_SIZE (BUFFER_SIZE * 2)
 
+namespace morse {
+
 class StubMorseDecoder : public MorseDecoder {
 private:
   bool silent_;
@@ -57,7 +59,9 @@ public:
   }
 };
 
-void ReadFile(int fd, MorseReader *timing_tracker) {
+} // namespace morse
+
+void ReadFile(int fd, ::morse::MorseReader *timing_tracker) {
   const size_t kBufSize = 1024;
   char buffer[kBufSize];
 
@@ -125,9 +129,9 @@ int main(int argc, char *argv[]) {
   auto input_file_name = argv[optind++];
 
   // make morse timing tracker
-  auto *morse_decoder = new DefaultMorseDecoder{};
-  morse_decoder->Subscribe(new DefaultEventListener{});
-  auto *timing_tracker = new MorseReader(morse_decoder);
+  auto *morse_decoder = new ::morse::DefaultMorseDecoder{};
+  morse_decoder->Subscribe(new ::morse::DefaultEventListener{});
+  auto *timing_tracker = new ::morse::MorseReader(morse_decoder);
 
   // setup input file
   SF_INFO sf_info = {0};
@@ -185,7 +189,8 @@ int main(int argc, char *argv[]) {
   memset(prev_buffer, 0, sizeof(short));
 
   // setup morse reader
-  auto *signal_detector = new MorseSignalDetector(timing_tracker, BUFFER_SIZE);
+  auto *signal_detector =
+      new ::morse::MorseSignalDetector(timing_tracker, BUFFER_SIZE);
   signal_detector->Verbose(verbose);
   if (!pattern_file_name.empty()) {
     if (signal_detector->SetDumpFile(pattern_file_name) < 0) {

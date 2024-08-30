@@ -8,6 +8,8 @@
 #include "event_listener.h"
 #include "morse_decoder.h"
 
+namespace morse {
+
 class DefaultMorseDecoder : public MorseDecoder {
 private:
   int state_;
@@ -28,5 +30,7 @@ public:
 private:
   int Decode(int state, int signal);
 };
+
+} // namespace morse
 
 #endif // DEFAULT_DECODER_H_

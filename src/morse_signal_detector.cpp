@@ -4,6 +4,8 @@
 
 #include "morse_signal_detector.h"
 
+namespace morse {
+
 static const float kThreshold = 2.0e12;
 
 MorseSignalDetector::MorseSignalDetector(MorseReader *timing_tracker,
@@ -88,3 +90,5 @@ float MorseSignalDetector::MakeInputData(complex input_data[], float window[],
   }
   return total_power;
 }
+
+} // namespace morse

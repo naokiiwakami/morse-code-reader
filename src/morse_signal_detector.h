@@ -11,6 +11,8 @@
 #include "morse_decoder.h"
 #include "morse_reader.h"
 
+namespace morse {
+
 class MorseSignalDetector {
 private:
   size_t window_size_;
@@ -46,5 +48,7 @@ private:
   float MakeInputData(complex input_data[], float window[], short prev[],
                       short current[], int n);
 };
+
+} // namespace morse
 
 #endif // MORSE_SIGNAL_DETECTOR_H_
