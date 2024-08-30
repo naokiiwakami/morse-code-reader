@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "morse_timing_tracker.h"
+#include "morse_decoder.h"
 
 class DefaultMorseDecoder : public MorseDecoder {
 private:

@@ -1,5 +1,5 @@
-#ifndef MORSE_READER_H_
-#define MORSE_READER_H_
+#ifndef MORSE_SIGNAL_DETECTOR_H_
+#define MORSE_SIGNAL_DETECTOR_H_
 
 #include <stdio.h>
 
@@ -9,7 +9,7 @@
 
 #include "fft.h"
 #include "morse_decoder.h"
-#include "morse_timing_tracker.h"
+#include "morse_reader.h"
 
 class MorseSignalDetector {
 private:
@@ -20,13 +20,13 @@ private:
 
   int prev_value_ = 0;
 
-  MorseTimingTracker *timing_tracker_;
+  MorseReader *timing_tracker_;
 
   bool verbose_ = false;
   FILE *dump_file_ = nullptr;
 
 public:
-  MorseSignalDetector(MorseTimingTracker *timing_tracker, size_t window_size);
+  MorseSignalDetector(MorseReader *timing_tracker, size_t window_size);
   virtual ~MorseSignalDetector();
 
   void Verbose(bool value = true);
@@ -47,4 +47,4 @@ private:
                       short current[], int n);
 };
 
-#endif // MORSE_READER_H_
+#endif // MORSE_SIGNAL_DETECTOR_H_

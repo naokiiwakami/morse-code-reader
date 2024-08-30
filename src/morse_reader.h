@@ -1,5 +1,5 @@
-#ifndef MORSE_TIMING_TRACKER_H_
-#define MORSE_TIMING_TRACKER_H_
+#ifndef MORSE_READER_H_
+#define MORSE_READER_H_
 
 #include <cstdint>
 
@@ -12,7 +12,7 @@ enum ReaderState {
   BREAK,
 };
 
-class MorseTimingTracker {
+class MorseReader {
 private:
   MorseDecoder *decoder_;
   uint32_t clock_;
@@ -23,11 +23,11 @@ private:
   float sum_dit_length_;
 
 public:
-  MorseTimingTracker(MorseDecoder *decoder);
-  virtual ~MorseTimingTracker();
+  MorseReader(MorseDecoder *decoder);
+  virtual ~MorseReader();
   void Proceed();
   void Rise();
   void Fall();
 };
 
-#endif // MORSE_TIMING_TRACKER_H_
+#endif // MORSE_READER_H_

@@ -1,3 +1,4 @@
 *.o
 read_morse
 .vscode
+venv

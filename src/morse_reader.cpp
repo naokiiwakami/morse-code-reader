@@ -1,14 +1,14 @@
 #include <stdio.h>
 
-#include "morse_timing_tracker.h"
+#include "morse_reader.h"
 
-MorseTimingTracker::MorseTimingTracker(MorseDecoder *decoder)
+MorseReader::MorseReader(MorseDecoder *decoder)
     : decoder_{decoder}, clock_(0), state_(IDLE), last_interval_(0),
       estimated_dit_length_(0), dit_count_(0), sum_dit_length_(0) {}
 
-MorseTimingTracker::~MorseTimingTracker() { delete decoder_; }
+MorseReader::~MorseReader() { delete decoder_; }
 
-void MorseTimingTracker::Proceed() {
+void MorseReader::Proceed() {
   ++clock_;
   if (estimated_dit_length_ == 0) {
     return;
@@ -24,7 +24,7 @@ void MorseTimingTracker::Proceed() {
   }
 }
 
-void MorseTimingTracker::Rise() {
+void MorseReader::Rise() {
   if (state_ == LOW) {
     if (estimated_dit_length_ == 0) {
       int32_t this_interval = clock_;
@@ -48,7 +48,7 @@ void MorseTimingTracker::Rise() {
   clock_ = 0;
 }
 
-void MorseTimingTracker::Fall() {
+void MorseReader::Fall() {
   if (estimated_dit_length_ == 0) {
     last_interval_ = clock_;
   } else {

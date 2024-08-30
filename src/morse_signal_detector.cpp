@@ -6,7 +6,7 @@
 
 static const float kThreshold = 2.0e12;
 
-MorseSignalDetector::MorseSignalDetector(MorseTimingTracker *timing_tracker,
+MorseSignalDetector::MorseSignalDetector(MorseReader *timing_tracker,
                                          size_t window_size)
     : window_size_(window_size), timing_tracker_(timing_tracker) {
   window_ = new float[window_size_ * 2];

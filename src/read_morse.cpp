@@ -19,8 +19,8 @@
 #include "default_decoder.h"
 #include "fft.h"
 #include "morse_decoder.h"
+#include "morse_reader.h"
 #include "morse_signal_detector.h"
-#include "morse_timing_tracker.h"
 
 #define BUFFER_SIZE 256
 #define WINDOW_SIZE (BUFFER_SIZE * 2)
@@ -57,7 +57,7 @@ public:
   }
 };
 
-void ReadFile(int fd, MorseTimingTracker *timing_tracker) {
+void ReadFile(int fd, MorseReader *timing_tracker) {
   const size_t kBufSize = 1024;
   char buffer[kBufSize];
 
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
 
   // make morse timing tracker
   auto *morse_decoder = new DefaultMorseDecoder{};
-  auto *timing_tracker = new MorseTimingTracker(morse_decoder);
+  auto *timing_tracker = new MorseReader(morse_decoder);
 
   // setup input file
   SF_INFO sf_info = {0};
