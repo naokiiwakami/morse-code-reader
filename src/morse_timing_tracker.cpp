@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "morse_timing_tracker.h"
 
 MorseTimingTracker::MorseTimingTracker(MorseDecoder *decoder)
@@ -50,6 +52,7 @@ void MorseTimingTracker::Fall() {
   if (estimated_dit_length_ == 0) {
     last_interval_ = clock_;
   } else {
+    // printf("%d", estimated_dit_length_);
     if (clock_ < estimated_dit_length_ * 1.5) {
       decoder_->Dit();
       dit_count_ += 1;

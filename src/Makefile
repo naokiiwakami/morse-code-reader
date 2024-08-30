@@ -4,7 +4,7 @@ OBJECT_FILES = \
 	$(PROGRAM).o \
 	default_decoder.o \
 	fft.o \
-	morse_reader.o \
+	morse_signal_detector.o \
 	morse_timing_tracker.o 
 
 $(PROGRAM) : $(OBJECT_FILES)

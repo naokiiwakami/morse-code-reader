@@ -1,13 +1,17 @@
 #ifndef MORSE_READER_H_
 #define MORSE_READER_H_
 
+#include <stdio.h>
+
+#include <string>
+
 #include <stddef.h>
 
 #include "fft.h"
 #include "morse_decoder.h"
 #include "morse_timing_tracker.h"
 
-class MorseReader {
+class MorseSignalDetector {
 private:
   size_t window_size_;
   float *window_;
@@ -19,12 +23,15 @@ private:
   MorseTimingTracker *timing_tracker_;
 
   bool verbose_ = false;
+  FILE *dump_file_ = nullptr;
 
 public:
-  MorseReader(MorseDecoder *decoder, size_t window_size);
-  virtual ~MorseReader();
+  MorseSignalDetector(MorseTimingTracker *timing_tracker, size_t window_size);
+  virtual ~MorseSignalDetector();
 
-  MorseReader *Verbose(bool value = true);
+  void Verbose(bool value = true);
+
+  int SetDumpFile(const std::string &pattern_file_name);
 
   void Process(short prev_buffer[], short current_buffer[],
                size_t current_buffer_size);
