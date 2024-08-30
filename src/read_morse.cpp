@@ -88,6 +88,7 @@ void ReadFile(int fd, MorseReader *timing_tracker) {
       prev_level = level;
     }
   }
+  printf("\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -125,6 +126,7 @@ int main(int argc, char *argv[]) {
 
   // make morse timing tracker
   auto *morse_decoder = new DefaultMorseDecoder{};
+  morse_decoder->Subscribe(new DefaultEventListener{});
   auto *timing_tracker = new MorseReader(morse_decoder);
 
   // setup input file

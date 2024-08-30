@@ -4,30 +4,36 @@
  */
 #include "default_decoder.h"
 
+#include <string>
+
 #define ERR 0x1
 
 DefaultMorseDecoder::DefaultMorseDecoder() : state_(0) {}
 
+void DefaultMorseDecoder::Subscribe(EventListener *listener) {
+  listeners_.push_back(listener);
+}
+
 void DefaultMorseDecoder::Dit() {
-  printf(".");
-  fflush(stdout);
+  for (auto listener : listeners_) {
+    listener->OnEvent(EventType::SIGNAL, ".");
+  }
   state_ = Decode(state_, '.');
 }
 
 void DefaultMorseDecoder::Dah() {
-  printf("-");
-  fflush(stdout);
+  for (auto listener : listeners_) {
+    listener->OnEvent(EventType::SIGNAL, "-");
+  }
   state_ = Decode(state_, '-');
 }
 
 void DefaultMorseDecoder::Break() {
   state_ = Decode(state_, 0);
-  if (state_ > 1) {
-    printf(" %c   ", state_);
-  } else {
-    printf(" ?   ");
+  std::string out{state_ > 1 ? static_cast<char>(state_) : '?'};
+  for (auto listener : listeners_) {
+    listener->OnEvent(EventType::OUT, out);
   }
-  fflush(stdout);
   state_ = 0;
 }
 

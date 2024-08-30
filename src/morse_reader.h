@@ -2,6 +2,7 @@
 #define MORSE_READER_H_
 
 #include <cstdint>
+#include <vector>
 
 #include "morse_decoder.h"
 
