@@ -3,9 +3,9 @@
 
 namespace morse {
 
-class MorseDecoder {
+class Decoder {
 public:
-  virtual ~MorseDecoder() {}
+  virtual ~Decoder() {}
   virtual void Dit() = 0;
   virtual void Dah() = 0;
   virtual void Break() = 0;

@@ -7,8 +7,8 @@
 
 #include <stddef.h>
 
+#include "decoder.h"
 #include "fft.h"
-#include "morse_decoder.h"
 #include "morse_reader.h"
 
 namespace morse {

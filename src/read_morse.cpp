@@ -16,9 +16,9 @@
 #include <pulse/error.h>
 #include <pulse/simple.h>
 
+#include "decoder.h"
 #include "default_decoder.h"
 #include "fft.h"
-#include "morse_decoder.h"
 #include "morse_reader.h"
 #include "morse_signal_detector.h"
 
@@ -27,7 +27,7 @@
 
 namespace morse {
 
-class StubMorseDecoder : public MorseDecoder {
+class StubMorseDecoder : public Decoder {
 private:
   bool silent_;
 
@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
   auto input_file_name = argv[optind++];
 
   // make morse timing tracker
-  auto *morse_decoder = new ::morse::DefaultMorseDecoder{};
+  auto *morse_decoder = new ::morse::DefaultDecoder{};
   morse_decoder->Subscribe(new ::morse::DefaultEventListener{});
   auto *timing_tracker = new ::morse::MorseReader(morse_decoder);
 

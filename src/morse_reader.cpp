@@ -1,10 +1,10 @@
-#include <stdio.h>
-
 #include "morse_reader.h"
+
+#include <stdio.h>
 
 namespace morse {
 
-MorseReader::MorseReader(MorseDecoder *decoder)
+MorseReader::MorseReader(Decoder *decoder)
     : decoder_{decoder}, clock_(0), state_(IDLE), last_interval_(0),
       estimated_dit_length_(0), dit_count_(0), sum_dit_length_(0) {}
 

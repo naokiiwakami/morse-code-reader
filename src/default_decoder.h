@@ -5,20 +5,20 @@
 
 #include <vector>
 
+#include "decoder.h"
 #include "event_listener.h"
-#include "morse_decoder.h"
 
 namespace morse {
 
-class DefaultMorseDecoder : public MorseDecoder {
+class DefaultDecoder : public Decoder {
 private:
   int state_;
 
   std::vector<EventListener *> listeners_;
 
 public:
-  DefaultMorseDecoder();
-  ~DefaultMorseDecoder() = default;
+  DefaultDecoder();
+  ~DefaultDecoder() = default;
 
   void Subscribe(EventListener *listener);
 

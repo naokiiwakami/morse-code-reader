@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "morse_decoder.h"
+#include "decoder.h"
 
 namespace morse {
 
@@ -17,7 +17,7 @@ enum ReaderState {
 
 class MorseReader {
 private:
-  MorseDecoder *decoder_;
+  Decoder *decoder_;
   uint32_t clock_;
   ReaderState state_;
   int32_t last_interval_;
@@ -26,7 +26,7 @@ private:
   float sum_dit_length_;
 
 public:
-  MorseReader(MorseDecoder *decoder);
+  MorseReader(Decoder *decoder);
   virtual ~MorseReader();
   void Proceed();
   void Rise();

@@ -10,27 +10,27 @@
 
 namespace morse {
 
-DefaultMorseDecoder::DefaultMorseDecoder() : state_(0) {}
+DefaultDecoder::DefaultDecoder() : state_(0) {}
 
-void DefaultMorseDecoder::Subscribe(EventListener *listener) {
+void DefaultDecoder::Subscribe(EventListener *listener) {
   listeners_.push_back(listener);
 }
 
-void DefaultMorseDecoder::Dit() {
+void DefaultDecoder::Dit() {
   for (auto listener : listeners_) {
     listener->OnEvent(EventType::SIGNAL, ".");
   }
   state_ = Decode(state_, '.');
 }
 
-void DefaultMorseDecoder::Dah() {
+void DefaultDecoder::Dah() {
   for (auto listener : listeners_) {
     listener->OnEvent(EventType::SIGNAL, "-");
   }
   state_ = Decode(state_, '-');
 }
 
-void DefaultMorseDecoder::Break() {
+void DefaultDecoder::Break() {
   state_ = Decode(state_, 0);
   std::string out{state_ > 1 ? static_cast<char>(state_) : '?'};
   for (auto listener : listeners_) {
@@ -39,9 +39,9 @@ void DefaultMorseDecoder::Break() {
   state_ = 0;
 }
 
-void DefaultMorseDecoder::Space() { printf(" "); }
+void DefaultDecoder::Space() { printf(" "); }
 
-int DefaultMorseDecoder::Decode(int state, int c) {
+int DefaultDecoder::Decode(int state, int c) {
   static const unsigned char table[] = {
       0x01, 0x45, 0x54, 0x49, 0x41, 0x4e, 0x4d, 0x53, 0x55, 0x52, 0x57, 0x44,
       0x4b, 0x47, 0x4f, 0x48, 0x56, 0x46, 0x01, 0x4c, 0x01, 0x50, 0x4a, 0x42,

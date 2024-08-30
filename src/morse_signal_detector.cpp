@@ -1,8 +1,8 @@
+#include "morse_signal_detector.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "morse_signal_detector.h"
 
 namespace morse {
 
