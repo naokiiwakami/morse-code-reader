@@ -35,9 +35,11 @@ private:
   int32_t last_interval_;
   uint32_t estimated_dit_length_;
   uint32_t dit_count_;
-  float sum_dit_length_;
+  double sum_dit_length_;
 
   Observer *observer_;
+
+  size_t num_scans_since_startup_ = 0;
 
   size_t prev_dump_size_ = 0;
 

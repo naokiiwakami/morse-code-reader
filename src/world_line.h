@@ -29,7 +29,7 @@ private:
   std::string signals_ = {};
   std::string characters_ = {};
 
-  float estimated_dot_length_ = 0.0;
+  double estimated_dot_length_ = 0.0;
   double confidence_score_ = 1.0;
 
 public:
@@ -45,7 +45,13 @@ public:
 
   inline const std::string &GetSignals() const { return signals_; }
   inline const std::string &GetCharacters() const { return characters_; }
-  inline const float GetConfidence() const { return confidence_score_; }
+  inline const double GetConfidence() const { return confidence_score_; }
+  void NormalizeConfidence(double scale, bool do_square) {
+    confidence_score_ /= scale;
+    if (do_square) {
+      confidence_score_ *= confidence_score_;
+    }
+  }
 
 private:
   void Rise();

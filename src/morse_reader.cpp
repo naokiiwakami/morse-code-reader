@@ -43,33 +43,48 @@ void MorseReader::Dumpw(int width, int height, WINDOW *window) {
   if (current == nullptr) {
     wprintw(window, "Nothing to dump");
   }
+
   std::vector<WorldLine *> candidates;
   int irow = 0;
+  double max_confidence = 0.0;
   while (current != nullptr) {
-    candidates.push_back(current);
+    max_confidence = std::max(max_confidence, current->GetConfidence());
     current = current->Next();
   }
+
+  current = reinterpret_cast<WorldLine *>(observer_->next_);
+  std::vector<WorldLine *> to_delete;
+  while (current != nullptr) {
+    if (max_confidence / current->GetConfidence() < 8.0) {
+      candidates.push_back(current);
+    } else {
+      to_delete.push_back(current);
+      current->Remove();
+    }
+    current = current->Next();
+  }
+
   std::sort(candidates.begin(), candidates.end(), [](auto a, auto b) {
     return a->GetConfidence() > b->GetConfidence();
   });
+
+  for (auto *world_line : to_delete) {
+    delete world_line;
+  }
 
   if (prev_dump_size_ > candidates.size()) {
     wclear(window);
   }
   prev_dump_size_ = candidates.size();
 
-  bool init = true;
+  bool do_square = num_scans_since_startup_++ > 10;
+
   for (auto *world_line : candidates) {
-    if (init) {
-      attron(COLOR_PAIR(0));
-    }
-    mvwprintw(window, irow++, 0, "%f : %s", world_line->GetConfidence(),
-              world_line->GetCharacters().c_str());
+    double ratio = max_confidence / world_line->GetConfidence();
+    mvwprintw(window, irow++, 0, "(%f) %f : %s", ratio,
+              world_line->GetConfidence(), world_line->GetCharacters().c_str());
     mvwprintw(window, irow++, 4, "%s", world_line->GetSignals().c_str());
-    if (init) {
-      attroff(COLOR_PAIR(0));
-    }
-    init = false;
+    world_line->NormalizeConfidence(max_confidence, do_square);
   }
 }
 

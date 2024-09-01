@@ -28,6 +28,13 @@ public:
     prev_ = new_node;
   }
 
+  void Remove() {
+    if (next_ != nullptr) {
+      next_->prev_ = prev_;
+    }
+    prev_->next_ = next_;
+  }
+
   virtual void ChildRemoved() = 0;
 };
 
