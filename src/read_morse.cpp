@@ -17,8 +17,6 @@
 #include <pulse/error.h>
 #include <pulse/simple.h>
 
-#include "decoder.h"
-#include "default_decoder.h"
 #include "fft.h"
 #include "monitor.h"
 #include "morse_reader.h"
@@ -26,42 +24,6 @@
 
 #define BUFFER_SIZE 256
 #define WINDOW_SIZE (BUFFER_SIZE * 2)
-
-namespace morse {
-
-class StubMorseDecoder : public Decoder {
-private:
-  bool silent_;
-
-public:
-  StubMorseDecoder(bool silent) : silent_(silent) {}
-
-  void Dit() {
-    if (!silent_) {
-      printf("(dit)");
-    }
-  }
-
-  void Dah() {
-    if (!silent_) {
-      printf("(dah)");
-    }
-  }
-
-  void Break() {
-    if (!silent_) {
-      printf("( )");
-    }
-  }
-
-  void Space() {
-    if (!silent_) {
-      printf("(/)");
-    }
-  }
-};
-
-} // namespace morse
 
 /**
  * Read morse signals from pattern file instead of analysing wav.
@@ -135,9 +97,7 @@ int main(int argc, char *argv[]) {
   auto input_file_name = argv[optind++];
 
   // make morse timing tracker
-  auto *morse_decoder = new ::morse::DefaultDecoder{};
-  morse_decoder->Subscribe(new ::morse::DefaultEventListener{});
-  auto *morse_reader = new ::morse::MorseReader(morse_decoder);
+  auto *morse_reader = new ::morse::MorseReader();
 
   // setup input file
   SF_INFO sf_info = {0};

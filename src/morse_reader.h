@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "decoder.h"
 #include "node.h"
 
 namespace morse {
@@ -29,7 +28,6 @@ public:
 
 class MorseReader {
 private:
-  Decoder *decoder_;
   uint32_t clock_;
   ReaderState state_;
   int32_t last_interval_;
@@ -44,7 +42,7 @@ private:
   size_t prev_dump_size_ = 0;
 
 public:
-  MorseReader(Decoder *decoder);
+  MorseReader();
   virtual ~MorseReader();
 
   void Update(uint8_t level);

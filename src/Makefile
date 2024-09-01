@@ -2,7 +2,6 @@ PROGRAM = read_morse
 
 OBJECT_FILES = \
 	$(PROGRAM).o \
-	default_decoder.o \
 	fft.o \
 	monitor.o \
 	morse_reader.o \

@@ -11,15 +11,15 @@
 
 namespace morse {
 
-MorseReader::MorseReader(Decoder *decoder)
-    : decoder_{decoder}, clock_(0), state_(IDLE), last_interval_(0),
-      estimated_dit_length_(0), dit_count_(0), sum_dit_length_(0) {
+MorseReader::MorseReader()
+    : clock_(0), state_(IDLE), last_interval_(0), estimated_dit_length_(0),
+      dit_count_(0), sum_dit_length_(0) {
   observer_ = new Observer{};
   // attach the first world line
   observer_->Append(new WorldLine{});
 }
 
-MorseReader::~MorseReader() { delete decoder_; }
+MorseReader::~MorseReader() = default;
 
 void MorseReader::Update(uint8_t level) {
   WorldLine *current = reinterpret_cast<WorldLine *>(observer_->next_);
