@@ -24,12 +24,6 @@ void WorldLine::Update(uint8_t level) {
       ExtendBreak();
     }
   }
-  // TODO: Do something for memory leak
-  /*
-  if (prev_ == nullptr) {
-    delete this;
-  }
-  */
 }
 
 void WorldLine::Rise() {
@@ -42,7 +36,8 @@ void WorldLine::Rise() {
     }
     if (clock_ > estimated_dot_length_ * 1.5) {
       if (clock_ < estimated_dot_length_ * 2.5) {
-        float probability = 0.5;
+        double probability = (((double)clock_) / estimated_dot_length_) / 3.0;
+        // double probability = 0.5;
         auto fork = Fork(probability);
         fork->AddBreak(true);
       } else {
@@ -74,8 +69,8 @@ void WorldLine::Drop() {
       Terminate();
       return;
     } else if (clock_ < estimated_dot_length_ * 2.3) {
-      if (clock_ > estimated_dot_length_ * 1.8) {
-        float probability = (((float)clock_) / estimated_dot_length_) / 3.0;
+      if (clock_ > estimated_dot_length_ * 1.5) {
+        double probability = (((double)clock_) / estimated_dot_length_) / 3.0;
         Fork(probability)->AddDash();
       }
       AddDot();
@@ -98,7 +93,7 @@ void WorldLine::ExtendBreak() {
     AddSpace();
     line_state_ = LineState::BREAK;
   }
-  if (line_state_ == LineState::BREAK && clock_ > estimated_dot_length_ * 14) {
+  if (line_state_ == LineState::BREAK && clock_ > estimated_dot_length_ * 16) {
     Terminate();
   }
 }
@@ -153,13 +148,10 @@ WorldLine *WorldLine::Fork(double weight) {
 }
 
 void WorldLine::Terminate() {
-  auto prev = prev_;
-  prev->next_ = next_;
-  if (next_ != nullptr) {
-    next_->prev_ = prev;
-  }
-  prev_ = nullptr;
-  prev->ChildRemoved();
+  // just put the confidence down to the floor so that the reader
+  // will kill this world line at the end of the cycle.
+  confidence_score_ = 0.0;
+  prev_->ChildRemoved();
 }
 
 void WorldLine::ChildRemoved() {

@@ -7,7 +7,6 @@
 
 #include <stddef.h>
 
-#include "decoder.h"
 #include "fft.h"
 #include "monitor.h"
 #include "morse_reader.h"
