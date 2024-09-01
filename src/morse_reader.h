@@ -47,10 +47,6 @@ public:
 
   void Update(uint8_t level);
 
-  void Proceed();
-  void Rise();
-  void Fall();
-
   void Dump();
   void Dumpw(int width, int height, WINDOW *window);
 };

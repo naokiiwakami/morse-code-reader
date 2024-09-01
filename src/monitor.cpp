@@ -32,7 +32,6 @@ void Monitor::AddSignal(char signal) {
 }
 
 void Monitor::Dump(MorseReader *reader) {
-  // wclear(dump_window_);
   reader->Dumpw(0, 0, dump_window_);
   wrefresh(dump_window_);
 }

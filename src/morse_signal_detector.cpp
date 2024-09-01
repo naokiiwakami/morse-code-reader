@@ -53,34 +53,13 @@ void MorseSignalDetector::Process(short prev_buffer[], short current_buffer[],
 
   if (dump_file_ == nullptr) {
     morse_reader_->Update(value);
-    /*
-    morse_reader_->Proceed();
-    if (value && !prev_value_) {
-      morse_reader_->Rise();
-    }
-    if (!value && prev_value_) {
-      morse_reader_->Fall();
-    }
-    */
     if (value != prev_value_) {
       monitor->Dump(morse_reader_);
     }
-    /*
-     if (value != prev_value_) {
-       wclear(window);
-       morse_reader_->Dumpw(0, 0, window);
-       wrefresh(window);
-     }
-     */
   } else {
     fprintf(dump_file_, "%c", value ? '^' : '_');
   }
 
-  /*
-  if (verbose_) {
-    printf("%c", value ? '^' : '_');
-  }
-  */
   prev_value_ = value;
 }
 

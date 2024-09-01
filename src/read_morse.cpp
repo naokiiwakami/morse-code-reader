@@ -63,39 +63,21 @@ public:
 
 } // namespace morse
 
+/**
+ * Read morse signals from pattern file instead of analysing wav.
+ */
 void ReadFile(int fd, ::morse::MorseReader *reader) {
-  // curses setup
-  /*
-  int row, col;
-  initscr();
-  getmaxyx(stdscr, row, col);
-  curs_set(0);
-  WINDOW *local_win = newwin(row - 12, col, 12, 0);
-  */
   auto *monitor = new morse::Monitor();
 
   const size_t kBufSize = 1024;
   char buffer[kBufSize];
 
-  // int prev_level = 0;
-  int irow = 0;
-  int icol = 1;
   int length;
   uint8_t prev_level = 0;
   while ((length = read(fd, buffer, sizeof(buffer))) > 0) {
     for (int i = 0; i < length; ++i) {
       usleep(10000);
       char value = buffer[i];
-      // printf("%c", value);
-      // fflush(stdout);
-      /*
-      mvprintw(irow, icol++, "%c", value == '^' ? '^' : ' ');
-      refresh();
-      if (icol == col - 1) {
-        ++irow;
-        icol = 1;
-      }
-      */
       monitor->AddSignal(value);
       uint8_t level;
       switch (value) {
@@ -112,57 +94,15 @@ void ReadFile(int fd, ::morse::MorseReader *reader) {
       reader->Update(level);
       if (prev_level != level) {
         monitor->Dump(reader);
-        /*
-          wclear(local_win);
-          reader->Dumpw(col, row, local_win);
-          wrefresh(local_win);
-          */
       }
       prev_level = level;
-      /*
-      timing_tracker->Proceed();
-      char value = buffer[i];
-      int level;
-      switch (value) {
-      case '^':
-        level = 1;
-        if (prev_level == 0) {
-          timing_tracker->Rise();
-        }
-        break;
-      case '_':
-        level = 0;
-        if (prev_level == 1) {
-          timing_tracker->Fall();
-        }
-        break;
-      default:
-        // ignore
-        continue;
-      }
-      prev_level = level;
-      */
     }
   }
   monitor->Dump(reader);
-  /*
-  wclear(local_win);
-  reader->Dumpw(col, row, local_win);
-  wrefresh(local_win);
-  */
-
-  // printf("\n");
-  // reader->Dump();
-  /*
-  mvprintw(row - 1, 0, "press any key to exit");
-  getch();
-  endwin();
-  */
   delete monitor;
 }
 
 int main(int argc, char *argv[]) {
-
   // read arguments
   std::string pattern_file_name{};
   bool verbose = false;
@@ -268,15 +208,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  /*
-    int row, col;
-    initscr();
-    getmaxyx(stdscr, row, col);
-    curs_set(0);
-    WINDOW *local_win = newwin(row - 12, col, 12, 0);
-    wprintw(local_win, "AAAAAAA\n");
-    wrefresh(local_win);
-    */
   auto *monitor = new morse::Monitor();
 
   // read and process data of approximately 6ms for each in the loop
