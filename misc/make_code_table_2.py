@@ -48,7 +48,7 @@ def ensure_table_length(table: list, index: int):
 TABLE = []
 
 # build the tree
-for code, letter in INPUTS:
+for code, character in INPUTS:
     index = 0
     for element in code:
         ensure_table_length(TABLE, index)
@@ -59,9 +59,9 @@ for code, letter in INPUTS:
             TABLE[index] |= 0x2
             index = index * 2 + 2
     ensure_table_length(TABLE, index)
-    char_code = (ord(letter) - ord("/")) << 2
+    char_code = (ord(character) - ord("/")) << 2
     TABLE[index] |= char_code
-    # current.letter = letter
+    # current.character = character
 
 print("TABLE = [")
 offset = 0

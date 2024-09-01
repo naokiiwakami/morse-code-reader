@@ -1,23 +1,35 @@
+#include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
 #include <libgen.h>
 #include <math.h>
+#include <ncurses.h>
 #include <sndfile.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <string>
 
 #include <pulse/error.h>
 #include <pulse/simple.h>
 
+#include "decoder.h"
 #include "default_decoder.h"
 #include "fft.h"
-#include "morse_decoder.h"
+#include "monitor.h"
 #include "morse_reader.h"
-#include "morse_timing_tracker.h"
+#include "morse_signal_detector.h"
 
 #define BUFFER_SIZE 256
 #define WINDOW_SIZE (BUFFER_SIZE * 2)
 
-class StubMorseDecoder : public MorseDecoder {
+namespace morse {
+
+class StubMorseDecoder : public Decoder {
 private:
   bool silent_;
 
@@ -49,30 +61,109 @@ public:
   }
 };
 
-int main(int argc, char *argv[]) {
-  int iarg = 1;
-  bool verbose = false;
-  if (iarg < argc && strcmp(argv[iarg], "-v") == 0) {
-    verbose = true;
-    ++iarg;
+} // namespace morse
+
+/**
+ * Read morse signals from pattern file instead of analysing wav.
+ */
+void ReadFile(int fd, ::morse::MorseReader *reader) {
+  auto *monitor = new morse::Monitor();
+
+  const size_t kBufSize = 1024;
+  char buffer[kBufSize];
+
+  int length;
+  uint8_t prev_level = 0;
+  while ((length = read(fd, buffer, sizeof(buffer))) > 0) {
+    for (int i = 0; i < length; ++i) {
+      usleep(10000);
+      char value = buffer[i];
+      monitor->AddSignal(value);
+      uint8_t level;
+      switch (value) {
+      case '^':
+        level = 1;
+        break;
+      case '_':
+        level = 0;
+        break;
+      default:
+        // ignore
+        continue;
+      }
+      reader->Update(level);
+      if (prev_level != level) {
+        monitor->Dump(reader);
+      }
+      prev_level = level;
+    }
   }
-  if (iarg >= argc) {
-    fprintf(stderr, "Usage: %s <morse_audio_wav>\n", basename(argv[0]));
+  monitor->Dump(reader);
+  delete monitor;
+}
+
+int main(int argc, char *argv[]) {
+  // read arguments
+  std::string pattern_file_name{};
+  bool verbose = false;
+  while (true) {
+    static struct option long_options[] = {
+        {"record", required_argument, nullptr, 'r'}, {0, 0, 0, 0}};
+    int c = getopt_long(argc, argv, "r:v", long_options, nullptr);
+    if (c == -1) {
+      break;
+    }
+    switch (c) {
+    case 'r':
+      pattern_file_name = optarg;
+      break;
+    case 'v':
+      verbose = true;
+      break;
+    }
+  }
+
+  if (optind >= argc) {
+    fprintf(stderr, "Usage: %s [options] <morse_audio_wav>\n",
+            basename(argv[0]));
+    fprintf(stderr, "options:\n");
+    fprintf(stderr,
+            "  --record <pattern_file> : Dump signal pattern to file\n");
     exit(1);
   }
-  auto sound_file_name = argv[iarg];
+
+  auto input_file_name = argv[optind++];
+
+  // make morse timing tracker
+  auto *morse_decoder = new ::morse::DefaultDecoder{};
+  morse_decoder->Subscribe(new ::morse::DefaultEventListener{});
+  auto *morse_reader = new ::morse::MorseReader(morse_decoder);
 
   // setup input file
   SF_INFO sf_info = {0};
   SNDFILE *sndfile;
-  sndfile = sf_open(sound_file_name, SFM_READ, &sf_info);
+  sndfile = sf_open(input_file_name, SFM_READ, &sf_info);
   if (sndfile == nullptr) {
-    fprintf(stderr, "No such file: %s\n", sound_file_name);
-    exit(1);
+    /*
+    int sf_errno = sf_error(sndfile);
+    if (sf_errno != SF_ERR_SYSTEM && sf_errno != SF_ERR_UNRECOGNISED_FORMAT) {
+      fprintf(stderr, "File error: %s: %s\n", input_file_name,
+              sf_error_number(sf_errno));
+      return 1;
+    }
+    */
+    int fd = open(input_file_name, 0);
+    if (fd < 0) {
+      fprintf(stderr, "File error: %s: %s\n", input_file_name, strerror(errno));
+      return 1;
+    }
+    ReadFile(fd, morse_reader);
+    close(fd);
+    return 0;
   }
 
   if (verbose) {
-    fprintf(stderr, "file       = %s\n", sound_file_name);
+    fprintf(stderr, "file       = %s\n", input_file_name);
     fprintf(stderr, "channels   = %d\n", sf_info.channels);
     fprintf(stderr, "samplerate = %d\n", sf_info.samplerate);
     fprintf(stderr, "channels   = %d\n", sf_info.channels);
@@ -105,10 +196,19 @@ int main(int argc, char *argv[]) {
   current_buffer = buffers[1];
   memset(prev_buffer, 0, sizeof(short));
 
-  // setup the morse reader
-  auto *morse_decoder = new DefaultMorseDecoder{};
-  auto *morse_reader = new MorseReader(morse_decoder, BUFFER_SIZE);
-  morse_reader->Verbose(false);
+  // setup morse reader
+  auto *signal_detector =
+      new ::morse::MorseSignalDetector(morse_reader, BUFFER_SIZE);
+  signal_detector->Verbose(verbose);
+  if (!pattern_file_name.empty()) {
+    if (signal_detector->SetDumpFile(pattern_file_name) < 0) {
+      fprintf(stderr, "File open failed: %s (%s)\n", pattern_file_name.c_str(),
+              strerror(errno));
+      exit(-1);
+    }
+  }
+
+  auto *monitor = new morse::Monitor();
 
   // read and process data of approximately 6ms for each in the loop
   bool first = true;
@@ -129,7 +229,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (!first) {
-      morse_reader->Process(prev_buffer, current_buffer, num_samples);
+      signal_detector->Process(prev_buffer, current_buffer, num_samples,
+                               monitor);
     }
     first = false;
     short *temp = prev_buffer;
@@ -137,7 +238,9 @@ int main(int argc, char *argv[]) {
     current_buffer = temp;
 
   } while (num_samples == BUFFER_SIZE);
-  printf("\n\n");
+  monitor->Dump(morse_reader);
+
+  delete monitor;
 
   if (pa_simple_drain(pa, &error) < 0) {
     fprintf(stderr, __FILE__ ": pa_simple_drain() failed: %s\n",
@@ -148,7 +251,7 @@ int main(int argc, char *argv[]) {
   if (pa) {
     pa_simple_free(pa);
   }
-  delete morse_reader;
+  delete signal_detector;
   sf_close(sndfile);
 
   return 0;

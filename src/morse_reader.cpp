@@ -1,86 +1,76 @@
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-
 #include "morse_reader.h"
 
-static const float kThreshold = 2.0e12;
+#include <algorithm>
+#include <curses.h>
+#include <map>
+#include <stdio.h>
+#include <vector>
 
-MorseReader::MorseReader(MorseDecoder *decoder, size_t window_size)
-    : window_size_(window_size) {
-  window_ = new float[window_size_ * 2];
-  MakeBlackmanNuttallWindow(window_size_ * 2, window_);
-  input_data_ = new complex[window_size_ * 2];
-  temp_data_ = new complex[window_size_ * 2];
+#include "node.h"
+#include "world_line.h"
 
-  timing_tracker_ = new MorseTimingTracker(decoder);
+namespace morse {
+
+MorseReader::MorseReader(Decoder *decoder)
+    : decoder_{decoder}, clock_(0), state_(IDLE), last_interval_(0),
+      estimated_dit_length_(0), dit_count_(0), sum_dit_length_(0) {
+  observer_ = new Observer{};
+  // attach the first world line
+  observer_->Append(new WorldLine{});
 }
 
-MorseReader::~MorseReader() {
-  delete timing_tracker_;
-  delete[] input_data_;
-  delete[] temp_data_;
-  delete[] window_;
+MorseReader::~MorseReader() { delete decoder_; }
+
+void MorseReader::Update(uint8_t level) {
+  WorldLine *current = reinterpret_cast<WorldLine *>(observer_->next_);
+  while (current != nullptr) {
+    current->Update(level);
+    current = current->Next();
+  }
 }
 
-MorseReader *MorseReader::Verbose(bool value) {
-  verbose_ = value;
-  return this;
+void MorseReader::Dump() {
+  WorldLine *current = reinterpret_cast<WorldLine *>(observer_->next_);
+  while (current != nullptr) {
+    printf("%s: %f\n", current->GetCharacters().c_str(),
+           current->GetConfidence());
+    current = current->Next();
+  }
 }
 
-void MorseReader::Process(short prev_buffer[], short current_buffer[],
-                          size_t current_buffer_size) {
-  MakeInputData(input_data_, window_, prev_buffer, current_buffer,
-                current_buffer_size);
-  fft(input_data_, window_size_ * 2, temp_data_);
+void MorseReader::Dumpw(int width, int height, WINDOW *window) {
+  WorldLine *current = reinterpret_cast<WorldLine *>(observer_->next_);
+  if (current == nullptr) {
+    wprintw(window, "Nothing to dump");
+  }
+  std::vector<WorldLine *> candidates;
+  int irow = 0;
+  while (current != nullptr) {
+    candidates.push_back(current);
+    current = current->Next();
+  }
+  std::sort(candidates.begin(), candidates.end(), [](auto a, auto b) {
+    return a->GetConfidence() > b->GetConfidence();
+  });
 
-  float current = Power(input_data_[0]);
-  int value = 0;
-  for (size_t i = 0; i < window_size_; ++i) {
-    float next = i < window_size_ - 1 ? Power(input_data_[i + 1]) : 0.0;
-    if (current > kThreshold) {
-      value = 1;
+  if (prev_dump_size_ > candidates.size()) {
+    wclear(window);
+  }
+  prev_dump_size_ = candidates.size();
+
+  bool init = true;
+  for (auto *world_line : candidates) {
+    if (init) {
+      attron(COLOR_PAIR(0));
     }
-    temp_data_[i].Re = value;
-    current = next;
-  }
-  timing_tracker_->Proceed();
-  if (value && !prev_value_) {
-    timing_tracker_->Rise();
-  }
-  if (!value && prev_value_) {
-    timing_tracker_->Fall();
-  }
-  if (verbose_) {
-    printf("%c", value ? '^' : '_');
-  }
-  prev_value_ = value;
-}
-
-void MorseReader::MakeBlackmanNuttallWindow(size_t window_size,
-                                            float window[]) {
-  float a0 = 0.3636819;
-  float a1 = 0.4891775;
-  float a2 = 0.1365995;
-  float a3 = 0.0106411;
-  for (size_t n = 0; n < window_size; ++n) {
-    window[n] = a0 - a1 * cos((2 * M_PI * (n + 0.5)) / window_size) +
-                a2 * cos((4 * M_PI * (n + 0.5)) / window_size) -
-                a3 * cos((6 * M_PI * (n + 0.5)) / window_size);
+    mvwprintw(window, irow++, 0, "%f : %s", world_line->GetConfidence(),
+              world_line->GetCharacters().c_str());
+    mvwprintw(window, irow++, 4, "%s", world_line->GetSignals().c_str());
+    if (init) {
+      attroff(COLOR_PAIR(0));
+    }
+    init = false;
   }
 }
 
-float MorseReader::MakeInputData(complex input_data[], float window[],
-                                 short prev[], short current[], int n) {
-  float total_power = 0.0;
-  memset(current + n, 0, window_size_ - n);
-  for (size_t i = 0; i < window_size_; ++i) {
-    input_data[i].Re = window[i] * prev[i];
-    input_data[i].Im = 0;
-    total_power += Power(input_data[i]);
-    input_data[i + n].Re = window[i + n] * current[i];
-    input_data[i + n].Im = 0;
-    total_power += Power(input_data[i + n]);
-  }
-  return total_power;
-}
+} // namespace morse

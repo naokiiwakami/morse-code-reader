@@ -1,43 +1,56 @@
 #ifndef MORSE_READER_H_
 #define MORSE_READER_H_
 
-#include <stddef.h>
+#include <ncurses.h>
 
-#include "fft.h"
-#include "morse_decoder.h"
-#include "morse_timing_tracker.h"
+#include <cstdint>
+#include <vector>
+
+#include "decoder.h"
+#include "node.h"
+
+namespace morse {
+
+enum ReaderState {
+  IDLE,
+  HIGH,
+  LOW,
+  BREAK,
+};
+
+class Observer : public Node {
+public:
+  ~Observer() = default;
+
+  void ChildRemoved() {
+    // TODO(Naoki): Collect available results
+  }
+};
 
 class MorseReader {
 private:
-  size_t window_size_;
-  float *window_;
-  complex *input_data_;
-  complex *temp_data_;
+  Decoder *decoder_;
+  uint32_t clock_;
+  ReaderState state_;
+  int32_t last_interval_;
+  uint32_t estimated_dit_length_;
+  uint32_t dit_count_;
+  float sum_dit_length_;
 
-  int prev_value_ = 0;
+  Observer *observer_;
 
-  MorseTimingTracker *timing_tracker_;
-
-  bool verbose_ = false;
+  size_t prev_dump_size_ = 0;
 
 public:
-  MorseReader(MorseDecoder *decoder, size_t window_size);
+  MorseReader(Decoder *decoder);
   virtual ~MorseReader();
 
-  MorseReader *Verbose(bool value = true);
+  void Update(uint8_t level);
 
-  void Process(short prev_buffer[], short current_buffer[],
-               size_t current_buffer_size);
-
-private:
-  void MakeBlackmanNuttallWindow(size_t window_size, float window[]);
-
-  inline float Power(complex data) {
-    return data.Re * data.Re + data.Im * data.Im;
-  }
-
-  float MakeInputData(complex input_data[], float window[], short prev[],
-                      short current[], int n);
+  void Dump();
+  void Dumpw(int width, int height, WINDOW *window);
 };
+
+} // namespace morse
 
 #endif // MORSE_READER_H_

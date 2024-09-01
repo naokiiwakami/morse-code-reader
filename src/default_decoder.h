@@ -3,15 +3,24 @@
 
 #include <stdio.h>
 
-#include "morse_timing_tracker.h"
+#include <vector>
 
-class DefaultMorseDecoder : public MorseDecoder {
+#include "decoder.h"
+#include "event_listener.h"
+
+namespace morse {
+
+class DefaultDecoder : public Decoder {
 private:
   int state_;
 
+  std::vector<EventListener *> listeners_;
+
 public:
-  DefaultMorseDecoder();
-  ~DefaultMorseDecoder() = default;
+  DefaultDecoder();
+  ~DefaultDecoder() = default;
+
+  void Subscribe(EventListener *listener);
 
   void Dit();
   void Dah();
@@ -21,5 +30,7 @@ public:
 private:
   int Decode(int state, int signal);
 };
+
+} // namespace morse
 
 #endif // DEFAULT_DECODER_H_
