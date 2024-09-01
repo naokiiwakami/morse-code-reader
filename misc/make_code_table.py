@@ -46,8 +46,8 @@ for i in range(num_entries * 2):
 
 
 class Element:
-    def __init__(self, letter=None):
-        self.letter = letter
+    def __init__(self, character=None):
+        self.character = character
         self.left = None
         self.right = None
 
@@ -60,22 +60,22 @@ def fill_table(node, index, TABLE):
     if node is None:
         return
     if node.left is not None:
-        if node.left.letter is None:
+        if node.left.character is None:
             if CURRENT_PLACE_HOLDER >= ord("A"):
                 raise RuntimeError("out of placeholders")
-            node.left.letter = chr(CURRENT_PLACE_HOLDER)
+            node.left.character = chr(CURRENT_PLACE_HOLDER)
             CURRENT_PLACE_HOLDER += 1
-        left = ord(node.left.letter) - ord("0") + 1
+        left = ord(node.left.character) - ord("0") + 1
         fill_table(node.left, left, TABLE)
     else:
         left = 0
     if node.right is not None:
-        if node.right.letter is None:
+        if node.right.character is None:
             if CURRENT_PLACE_HOLDER >= ord("A"):
                 raise RuntimeError("out of placeholders")
-            node.right.letter = chr(CURRENT_PLACE_HOLDER)
+            node.right.character = chr(CURRENT_PLACE_HOLDER)
             CURRENT_PLACE_HOLDER += 1
-        right = ord(node.right.letter) - ord("0") + 1
+        right = ord(node.right.character) - ord("0") + 1
         fill_table(node.right, right, TABLE)
     else:
         right = 0
@@ -86,7 +86,7 @@ def fill_table(node, index, TABLE):
 root = Element("/")
 
 # build the tree
-for code, letter in INPUTS:
+for code, character in INPUTS:
     current = root
     for element in code:
         if element == ".":
@@ -97,7 +97,7 @@ for code, letter in INPUTS:
             if current.right is None:
                 current.right = Element()
             current = current.right
-    current.letter = letter
+    current.character = character
 
 # traverse
 fill_table(root, 0, TABLE)

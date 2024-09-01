@@ -9,6 +9,7 @@
 
 #include "decoder.h"
 #include "fft.h"
+#include "monitor.h"
 #include "morse_reader.h"
 
 namespace morse {
@@ -20,15 +21,15 @@ private:
   complex *input_data_;
   complex *temp_data_;
 
-  int prev_value_ = 0;
+  uint8_t prev_value_ = 0;
 
-  MorseReader *timing_tracker_;
+  MorseReader *morse_reader_;
 
   bool verbose_ = false;
   FILE *dump_file_ = nullptr;
 
 public:
-  MorseSignalDetector(MorseReader *timing_tracker, size_t window_size);
+  MorseSignalDetector(MorseReader *morse_reader, size_t window_size);
   virtual ~MorseSignalDetector();
 
   void Verbose(bool value = true);
@@ -36,7 +37,7 @@ public:
   int SetDumpFile(const std::string &pattern_file_name);
 
   void Process(short prev_buffer[], short current_buffer[],
-               size_t current_buffer_size);
+               size_t current_buffer_size, Monitor *monitor);
 
 private:
   void MakeBlackmanNuttallWindow(size_t window_size, float window[]);

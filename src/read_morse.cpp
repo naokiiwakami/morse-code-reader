@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <libgen.h>
 #include <math.h>
+#include <ncurses.h>
 #include <sndfile.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +20,7 @@
 #include "decoder.h"
 #include "default_decoder.h"
 #include "fft.h"
+#include "monitor.h"
 #include "morse_reader.h"
 #include "morse_signal_detector.h"
 
@@ -61,14 +63,63 @@ public:
 
 } // namespace morse
 
-void ReadFile(int fd, ::morse::MorseReader *timing_tracker) {
+void ReadFile(int fd, ::morse::MorseReader *reader) {
+  // curses setup
+  /*
+  int row, col;
+  initscr();
+  getmaxyx(stdscr, row, col);
+  curs_set(0);
+  WINDOW *local_win = newwin(row - 12, col, 12, 0);
+  */
+  auto *monitor = new morse::Monitor();
+
   const size_t kBufSize = 1024;
   char buffer[kBufSize];
 
-  int prev_level = 0;
+  // int prev_level = 0;
+  int irow = 0;
+  int icol = 1;
   int length;
+  uint8_t prev_level = 0;
   while ((length = read(fd, buffer, sizeof(buffer))) > 0) {
     for (int i = 0; i < length; ++i) {
+      usleep(10000);
+      char value = buffer[i];
+      // printf("%c", value);
+      // fflush(stdout);
+      /*
+      mvprintw(irow, icol++, "%c", value == '^' ? '^' : ' ');
+      refresh();
+      if (icol == col - 1) {
+        ++irow;
+        icol = 1;
+      }
+      */
+      monitor->AddSignal(value);
+      uint8_t level;
+      switch (value) {
+      case '^':
+        level = 1;
+        break;
+      case '_':
+        level = 0;
+        break;
+      default:
+        // ignore
+        continue;
+      }
+      reader->Update(level);
+      if (prev_level != level) {
+        monitor->Dump(reader);
+        /*
+          wclear(local_win);
+          reader->Dumpw(col, row, local_win);
+          wrefresh(local_win);
+          */
+      }
+      prev_level = level;
+      /*
       timing_tracker->Proceed();
       char value = buffer[i];
       int level;
@@ -90,9 +141,24 @@ void ReadFile(int fd, ::morse::MorseReader *timing_tracker) {
         continue;
       }
       prev_level = level;
+      */
     }
   }
-  printf("\n");
+  monitor->Dump(reader);
+  /*
+  wclear(local_win);
+  reader->Dumpw(col, row, local_win);
+  wrefresh(local_win);
+  */
+
+  // printf("\n");
+  // reader->Dump();
+  /*
+  mvprintw(row - 1, 0, "press any key to exit");
+  getch();
+  endwin();
+  */
+  delete monitor;
 }
 
 int main(int argc, char *argv[]) {
@@ -131,25 +197,27 @@ int main(int argc, char *argv[]) {
   // make morse timing tracker
   auto *morse_decoder = new ::morse::DefaultDecoder{};
   morse_decoder->Subscribe(new ::morse::DefaultEventListener{});
-  auto *timing_tracker = new ::morse::MorseReader(morse_decoder);
+  auto *morse_reader = new ::morse::MorseReader(morse_decoder);
 
   // setup input file
   SF_INFO sf_info = {0};
   SNDFILE *sndfile;
   sndfile = sf_open(input_file_name, SFM_READ, &sf_info);
   if (sndfile == nullptr) {
+    /*
     int sf_errno = sf_error(sndfile);
     if (sf_errno != SF_ERR_SYSTEM && sf_errno != SF_ERR_UNRECOGNISED_FORMAT) {
       fprintf(stderr, "File error: %s: %s\n", input_file_name,
               sf_error_number(sf_errno));
       return 1;
     }
+    */
     int fd = open(input_file_name, 0);
     if (fd < 0) {
       fprintf(stderr, "File error: %s: %s\n", input_file_name, strerror(errno));
       return 1;
     }
-    ReadFile(fd, timing_tracker);
+    ReadFile(fd, morse_reader);
     close(fd);
     return 0;
   }
@@ -190,7 +258,7 @@ int main(int argc, char *argv[]) {
 
   // setup morse reader
   auto *signal_detector =
-      new ::morse::MorseSignalDetector(timing_tracker, BUFFER_SIZE);
+      new ::morse::MorseSignalDetector(morse_reader, BUFFER_SIZE);
   signal_detector->Verbose(verbose);
   if (!pattern_file_name.empty()) {
     if (signal_detector->SetDumpFile(pattern_file_name) < 0) {
@@ -199,6 +267,17 @@ int main(int argc, char *argv[]) {
       exit(-1);
     }
   }
+
+  /*
+    int row, col;
+    initscr();
+    getmaxyx(stdscr, row, col);
+    curs_set(0);
+    WINDOW *local_win = newwin(row - 12, col, 12, 0);
+    wprintw(local_win, "AAAAAAA\n");
+    wrefresh(local_win);
+    */
+  auto *monitor = new morse::Monitor();
 
   // read and process data of approximately 6ms for each in the loop
   bool first = true;
@@ -219,7 +298,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (!first) {
-      signal_detector->Process(prev_buffer, current_buffer, num_samples);
+      signal_detector->Process(prev_buffer, current_buffer, num_samples,
+                               monitor);
     }
     first = false;
     short *temp = prev_buffer;
@@ -227,7 +307,9 @@ int main(int argc, char *argv[]) {
     current_buffer = temp;
 
   } while (num_samples == BUFFER_SIZE);
-  printf("\n\n");
+  monitor->Dump(morse_reader);
+
+  delete monitor;
 
   if (pa_simple_drain(pa, &error) < 0) {
     fprintf(stderr, __FILE__ ": pa_simple_drain() failed: %s\n",

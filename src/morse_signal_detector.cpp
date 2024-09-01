@@ -10,7 +10,7 @@ static const float kThreshold = 2.0e12;
 
 MorseSignalDetector::MorseSignalDetector(MorseReader *timing_tracker,
                                          size_t window_size)
-    : window_size_(window_size), timing_tracker_(timing_tracker) {
+    : window_size_(window_size), morse_reader_(timing_tracker) {
   window_ = new float[window_size_ * 2];
   MakeBlackmanNuttallWindow(window_size_ * 2, window_);
   input_data_ = new complex[window_size_ * 2];
@@ -18,7 +18,7 @@ MorseSignalDetector::MorseSignalDetector(MorseReader *timing_tracker,
 }
 
 MorseSignalDetector::~MorseSignalDetector() {
-  delete timing_tracker_;
+  delete morse_reader_;
   delete[] input_data_;
   delete[] temp_data_;
   delete[] window_;
@@ -32,13 +32,14 @@ int MorseSignalDetector::SetDumpFile(const std::string &pattern_file_name) {
 }
 
 void MorseSignalDetector::Process(short prev_buffer[], short current_buffer[],
-                                  size_t current_buffer_size) {
+                                  size_t current_buffer_size,
+                                  Monitor *monitor) {
   MakeInputData(input_data_, window_, prev_buffer, current_buffer,
                 current_buffer_size);
   fft(input_data_, window_size_ * 2, temp_data_);
 
   float current = Power(input_data_[0]);
-  int value = 0;
+  uint8_t value = 0;
   for (size_t i = 0; i < window_size_; ++i) {
     float next = i < window_size_ - 1 ? Power(input_data_[i + 1]) : 0.0;
     if (current > kThreshold) {
@@ -47,19 +48,39 @@ void MorseSignalDetector::Process(short prev_buffer[], short current_buffer[],
     temp_data_[i].Re = value;
     current = next;
   }
-  timing_tracker_->Proceed();
-  if (value && !prev_value_) {
-    timing_tracker_->Rise();
-  }
-  if (!value && prev_value_) {
-    timing_tracker_->Fall();
-  }
-  if (dump_file_ != nullptr) {
+
+  monitor->AddSignal(value ? '^' : '_');
+
+  if (dump_file_ == nullptr) {
+    morse_reader_->Update(value);
+    /*
+    morse_reader_->Proceed();
+    if (value && !prev_value_) {
+      morse_reader_->Rise();
+    }
+    if (!value && prev_value_) {
+      morse_reader_->Fall();
+    }
+    */
+    if (value != prev_value_) {
+      monitor->Dump(morse_reader_);
+    }
+    /*
+     if (value != prev_value_) {
+       wclear(window);
+       morse_reader_->Dumpw(0, 0, window);
+       wrefresh(window);
+     }
+     */
+  } else {
     fprintf(dump_file_, "%c", value ? '^' : '_');
   }
+
+  /*
   if (verbose_) {
     printf("%c", value ? '^' : '_');
   }
+  */
   prev_value_ = value;
 }
 
