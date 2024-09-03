@@ -27,6 +27,36 @@ void MorseReader::Update(uint8_t level) {
     current->Update(level);
     current = current->Next();
   }
+
+  // conclude this cycle
+  double max_confidence = 0.0;
+  // find the maximum confidence
+  // we start over iteration since new worldlines may have been inserted in the
+  // previous loop
+  current = reinterpret_cast<WorldLine *>(observer_->next_);
+  while (current != nullptr) {
+    max_confidence = std::max(max_confidence, current->GetConfidence());
+    current = current->Next();
+  }
+
+  bool do_square = num_scans_since_startup_++ > 10;
+
+  // iterate again to drop world lines that are not confident enough
+  current = reinterpret_cast<WorldLine *>(observer_->next_);
+  std::vector<WorldLine *> to_delete;
+  while (current != nullptr) {
+    if (max_confidence / current->GetConfidence() >= 8.0) {
+      to_delete.push_back(current);
+      current->Remove();
+    }
+    current->NormalizeConfidence(max_confidence, do_square);
+    current = current->Next();
+  }
+
+  // delete dropped lines
+  for (auto *world_line : to_delete) {
+    delete world_line;
+  }
 }
 
 void MorseReader::Dump() {
@@ -45,22 +75,8 @@ void MorseReader::Dumpw(int width, int height, WINDOW *window) {
   }
 
   std::vector<WorldLine *> candidates;
-  int irow = 0;
-  double max_confidence = 0.0;
   while (current != nullptr) {
-    max_confidence = std::max(max_confidence, current->GetConfidence());
-    current = current->Next();
-  }
-
-  current = reinterpret_cast<WorldLine *>(observer_->next_);
-  std::vector<WorldLine *> to_delete;
-  while (current != nullptr) {
-    if (max_confidence / current->GetConfidence() < 8.0) {
-      candidates.push_back(current);
-    } else {
-      to_delete.push_back(current);
-      current->Remove();
-    }
+    candidates.push_back(current);
     current = current->Next();
   }
 
@@ -68,23 +84,17 @@ void MorseReader::Dumpw(int width, int height, WINDOW *window) {
     return a->GetConfidence() > b->GetConfidence();
   });
 
-  for (auto *world_line : to_delete) {
-    delete world_line;
-  }
-
   if (prev_dump_size_ > candidates.size()) {
     wclear(window);
   }
   prev_dump_size_ = candidates.size();
 
-  bool do_square = num_scans_since_startup_++ > 10;
-
+  int irow = 0;
   for (auto *world_line : candidates) {
-    double ratio = max_confidence / world_line->GetConfidence();
+    double ratio = 1.0 / world_line->GetConfidence();
     mvwprintw(window, irow++, 0, "(%f) %f : %s", ratio,
               world_line->GetConfidence(), world_line->GetCharacters().c_str());
     mvwprintw(window, irow++, 4, "%s", world_line->GetSignals().c_str());
-    world_line->NormalizeConfidence(max_confidence, do_square);
   }
 }
 
