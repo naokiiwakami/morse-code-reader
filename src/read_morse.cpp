@@ -67,17 +67,26 @@ void ReadFile(int fd, ::morse::MorseReader *reader) {
 int main(int argc, char *argv[]) {
   // read arguments
   std::string pattern_file_name{};
+  std::string analysis_file_name{};
   bool verbose = false;
+  int mute = 0;
   while (true) {
     static struct option long_options[] = {
-        {"record", required_argument, nullptr, 'r'}, {0, 0, 0, 0}};
-    int c = getopt_long(argc, argv, "r:v", long_options, nullptr);
+        {"record", required_argument, nullptr, 'r'},
+        {"analyze", required_argument, nullptr, 'a'},
+        {"mute", no_argument, &mute, 1},
+        {0, 0, 0, 0},
+    };
+    int c = getopt_long(argc, argv, "r:a:v", long_options, nullptr);
     if (c == -1) {
       break;
     }
     switch (c) {
     case 'r':
       pattern_file_name = optarg;
+      break;
+    case 'a':
+      analysis_file_name = optarg;
       break;
     case 'v':
       verbose = true;
@@ -160,15 +169,23 @@ int main(int argc, char *argv[]) {
   auto *signal_detector =
       new ::morse::MorseSignalDetector(morse_reader, BUFFER_SIZE);
   signal_detector->Verbose(verbose);
-  if (!pattern_file_name.empty()) {
-    if (signal_detector->SetDumpFile(pattern_file_name) < 0) {
-      fprintf(stderr, "File open failed: %s (%s)\n", pattern_file_name.c_str(),
-              strerror(errno));
-      exit(-1);
-    }
+  if (!pattern_file_name.empty() &&
+      signal_detector->SetDumpFile(pattern_file_name) < 0) {
+    fprintf(stderr, "File open failed: %s (%s)\n", pattern_file_name.c_str(),
+            strerror(errno));
+    exit(-1);
+  }
+  if (!analysis_file_name.empty() &&
+      signal_detector->SetAnalysisFile(analysis_file_name) < 0) {
+    fprintf(stderr, "File open failed: %s (%s)\n", analysis_file_name.c_str(),
+            strerror(errno));
+    exit(-1);
   }
 
-  auto *monitor = new morse::Monitor();
+  morse::Monitor *monitor = nullptr;
+  if (analysis_file_name.empty()) {
+    monitor = new morse::Monitor();
+  }
 
   // read and process data of approximately 6ms for each in the loop
   bool first = true;
@@ -176,16 +193,18 @@ int main(int argc, char *argv[]) {
   do {
     num_samples = sf_read_short(sndfile, current_buffer, BUFFER_SIZE);
 
-    if (pa_simple_write(pa, current_buffer,
-                        (size_t)(num_samples * sizeof(*current_buffer)),
-                        &error) < 0) {
-      fprintf(stderr, __FILE__ ": pa_simple_write() failed: %s\n",
-              pa_strerror(error));
-      if (pa) {
-        pa_simple_free(pa);
-      }
+    if (!mute) {
+      if (pa_simple_write(pa, current_buffer,
+                          (size_t)(num_samples * sizeof(*current_buffer)),
+                          &error) < 0) {
+        fprintf(stderr, __FILE__ ": pa_simple_write() failed: %s\n",
+                pa_strerror(error));
+        if (pa) {
+          pa_simple_free(pa);
+        }
 
-      return -1;
+        return -1;
+      }
     }
 
     if (!first) {
@@ -198,7 +217,10 @@ int main(int argc, char *argv[]) {
     current_buffer = temp;
 
   } while (num_samples == BUFFER_SIZE);
-  monitor->Dump(morse_reader);
+
+  if (monitor != nullptr) {
+    monitor->Dump(morse_reader);
+  }
 
   delete monitor;
 

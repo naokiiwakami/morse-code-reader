@@ -26,6 +26,9 @@ private:
 
   bool verbose_ = false;
   FILE *dump_file_ = nullptr;
+  FILE *analysis_file_ = nullptr;
+
+  size_t window_count_ = 0;
 
 public:
   MorseSignalDetector(MorseReader *morse_reader, size_t window_size);
@@ -34,6 +37,8 @@ public:
   void Verbose(bool value = true);
 
   int SetDumpFile(const std::string &pattern_file_name);
+
+  int SetAnalysisFile(const std::string &analysis_file_name);
 
   void Process(short prev_buffer[], short current_buffer[],
                size_t current_buffer_size, Monitor *monitor);
