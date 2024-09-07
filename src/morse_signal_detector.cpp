@@ -9,9 +9,9 @@
 
 namespace morse {
 
-static const float kFreqDomainFilter[] = {-0.1, -0.3, 1.0, -0.3, -0.1};
+static const float kFreqDomainFilterCoef[] = {-0.1, -0.3, 1.0, -0.3, -0.1};
 static const size_t kFreqDomainFilterSize =
-    sizeof(kFreqDomainFilter) / sizeof(*kFreqDomainFilter);
+    sizeof(kFreqDomainFilterCoef) / sizeof(*kFreqDomainFilterCoef);
 
 static const float kThreshold = 2.0e12;
 
@@ -69,7 +69,8 @@ void MorseSignalDetector::Process(short *buffers[], size_t current_buffer_size,
   // apply filter in frequency domain to retrieve peaks
   float v = 0;
   for (size_t i = 0; i < kFreqDomainFilterSize; ++i) {
-    v += data[center - kFreqDomainFilterSize / 2 + i] * kFreqDomainFilter[i];
+    v +=
+        data[center - kFreqDomainFilterSize / 2 + i] * kFreqDomainFilterCoef[i];
   }
   // apply filter in time domain to reduce noise
   float current_value = (v + filtered_values_[0] + filtered_values_[1]) * 0.33;
