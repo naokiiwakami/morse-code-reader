@@ -11,19 +11,23 @@ WorldLine::WorldLine(const WorldLine &src)
       estimated_dot_length_(src.estimated_dot_length_),
       confidence_score_(src.confidence_score_) {}
 
-void WorldLine::Update(uint8_t level) {
+bool WorldLine::Update(uint8_t level) {
   ++clock_;
   auto prev_level = prev_level_;
   prev_level_ = level;
+  bool changed = false;
   if (level > 0 && prev_level == 0) {
     Rise();
+    changed = true;
   } else if (level == 0) {
     if (prev_level > 0) {
       Drop();
+      changed = true;
     } else {
-      ExtendBreak();
+      changed = ExtendBreak();
     }
   }
+  return changed;
 }
 
 void WorldLine::Rise() {
@@ -84,18 +88,24 @@ void WorldLine::Drop() {
   clock_ = 0;
 }
 
-void WorldLine::ExtendBreak() {
+bool WorldLine::ExtendBreak() {
   if (dot_count_ == 0) {
-    return;
+    return false;
   }
+  bool changed = false;
   if (line_state_ == LineState::LOW && clock_ > estimated_dot_length_ * 5) {
     AddBreak(false);
     AddSpace();
     line_state_ = LineState::BREAK;
+    changed = true;
   }
+  /*
   if (line_state_ == LineState::BREAK && clock_ > estimated_dot_length_ * 16) {
     Terminate();
+    changed = true;
   }
+  */
+  return changed;
 }
 
 void WorldLine::AddDot() {

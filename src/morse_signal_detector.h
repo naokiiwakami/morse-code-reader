@@ -15,7 +15,8 @@ namespace morse {
 
 class MorseSignalDetector {
 private:
-  size_t window_size_;
+  size_t num_buffers_;
+  size_t buffer_size_;
   float *window_;
   complex *input_data_;
   complex *temp_data_;
@@ -31,7 +32,8 @@ private:
   size_t window_count_ = 0;
 
 public:
-  MorseSignalDetector(MorseReader *morse_reader, size_t window_size);
+  MorseSignalDetector(MorseReader *morse_reader, size_t num_buffers,
+                      size_t buffer_size);
   virtual ~MorseSignalDetector();
 
   void Verbose(bool value = true);
@@ -40,8 +42,7 @@ public:
 
   int SetAnalysisFile(const std::string &analysis_file_name);
 
-  void Process(short prev_buffer[], short current_buffer[],
-               size_t current_buffer_size, Monitor *monitor);
+  void Process(short *buffers[], size_t current_buffer_size, Monitor *monitor);
 
 private:
   void MakeBlackmanNuttallWindow(size_t window_size, float window[]);
@@ -50,8 +51,8 @@ private:
     return data.Re * data.Re + data.Im * data.Im;
   }
 
-  float MakeInputData(complex input_data[], float window[], short prev[],
-                      short current[], int n);
+  float MakeInputData(complex input_data[], float window[], short *buffers[],
+                      int n);
 };
 
 } // namespace morse

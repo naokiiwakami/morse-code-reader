@@ -10,7 +10,8 @@ Monitor::Monitor() {
   int width;
   getmaxyx(stdscr, height, width);
   curs_set(0);
-  dump_window_ = newwin(height - 19, width, 17, 0);
+  int window_start = height / 4;
+  dump_window_ = newwin(height - window_start - 2, width - 6, window_start, 3);
   height_ = height;
   width_ = width;
 }
@@ -23,7 +24,7 @@ Monitor::~Monitor() {
 }
 
 void Monitor::AddSignal(char signal) {
-  mvprintw(irow_, icol_++, "%c", signal == '^' ? '*' : ' ');
+  // mvprintw(irow_, icol_++, "%c", signal == '^' ? '*' : ' ');
   refresh();
   if (icol_ == width_ - 1) {
     ++irow_;

@@ -23,7 +23,7 @@
 #include "morse_signal_detector.h"
 
 #define BUFFER_SIZE 256
-#define WINDOW_SIZE (BUFFER_SIZE * 2)
+#define NUM_BUFFERS 4
 
 /**
  * Read morse signals from pattern file instead of analysing wav.
@@ -158,16 +158,18 @@ int main(int argc, char *argv[]) {
   }
 
   // setup buffers
-  short buffers[2][BUFFER_SIZE];
-  short *current_buffer;
-  short *prev_buffer;
-  prev_buffer = buffers[0];
-  current_buffer = buffers[1];
-  memset(prev_buffer, 0, sizeof(short));
+  short buffers_mem[NUM_BUFFERS][BUFFER_SIZE];
+  short *buffers[NUM_BUFFERS];
+  for (int i = 0; i < NUM_BUFFERS; ++i) {
+    buffers[i] = buffers_mem[i];
+    memset(buffers[i], 0, sizeof(short) * BUFFER_SIZE);
+  }
+
+  short *current_buffer = buffers[NUM_BUFFERS - 1];
 
   // setup morse reader
   auto *signal_detector =
-      new ::morse::MorseSignalDetector(morse_reader, BUFFER_SIZE);
+      new ::morse::MorseSignalDetector(morse_reader, NUM_BUFFERS, BUFFER_SIZE);
   signal_detector->Verbose(verbose);
   if (!pattern_file_name.empty() &&
       signal_detector->SetDumpFile(pattern_file_name) < 0) {
@@ -188,7 +190,7 @@ int main(int argc, char *argv[]) {
   }
 
   // read and process data of approximately 6ms for each in the loop
-  bool first = true;
+  int num_windows = 0;
   sf_count_t num_samples;
   do {
     num_samples = sf_read_short(sndfile, current_buffer, BUFFER_SIZE);
@@ -207,20 +209,24 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    if (!first) {
-      signal_detector->Process(prev_buffer, current_buffer, num_samples,
-                               monitor);
+    if (++num_windows >= NUM_BUFFERS) {
+      signal_detector->Process(buffers, num_samples, monitor);
     }
-    first = false;
-    short *temp = prev_buffer;
-    prev_buffer = current_buffer;
+
+    short *temp = buffers[0];
+    for (int i = 1; i < NUM_BUFFERS; ++i) {
+      buffers[i - 1] = buffers[i];
+    }
+    buffers[NUM_BUFFERS - 1] = temp;
     current_buffer = temp;
 
   } while (num_samples == BUFFER_SIZE);
 
-  if (monitor != nullptr) {
-    monitor->Dump(morse_reader);
-  }
+  /*
+    if (monitor != nullptr) {
+      monitor->Dump(morse_reader);
+    }
+    */
 
   delete monitor;
 
