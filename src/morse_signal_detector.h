@@ -21,15 +21,21 @@ private:
   complex *input_data_;
   complex *temp_data_;
 
-  uint8_t prev_value_ = 0;
-
   MorseReader *morse_reader_;
 
   bool verbose_ = false;
   FILE *dump_file_ = nullptr;
   FILE *analysis_file_ = nullptr;
 
+  // used for signal detection
   size_t window_count_ = 0;
+  static const size_t kLookBackWindowSize = 3;
+  float filtered_values_[kLookBackWindowSize];
+
+  // the detector keeps the result for a while since it may be amended
+  static const size_t kDetectionDelay = 64;
+  uint8_t detected_signal_[kDetectionDelay];
+  size_t signal_ptr_;
 
 public:
   MorseSignalDetector(MorseReader *morse_reader, size_t num_buffers,

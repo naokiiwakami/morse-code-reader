@@ -9,15 +9,21 @@
 
 namespace morse {
 
+static const float kFreqDomainFilter[] = {-0.1, -0.3, 1.0, -0.3, -0.1};
+static const size_t kFreqDomainFilterSize =
+    sizeof(kFreqDomainFilter) / sizeof(*kFreqDomainFilter);
+
 static const float kThreshold = 2.0e12;
 
 static float ppprev_v = 0.0;
 static float pprev_v = 0.0;
 static float prev_v = 0.0;
 
-const size_t kDetectionDelay = 64;
+/*
+const size_t MorseSignalDetector::kDetectionDelay = 64;
 static uint8_t values[kDetectionDelay];
 static size_t values_ptr = 1;
+*/
 
 MorseSignalDetector::MorseSignalDetector(MorseReader *timing_tracker,
                                          size_t num_buffers, size_t buffer_size)
@@ -27,7 +33,10 @@ MorseSignalDetector::MorseSignalDetector(MorseReader *timing_tracker,
   MakeBlackmanNuttallWindow(buffer_size_ * num_buffers_, window_);
   input_data_ = new complex[buffer_size_ * num_buffers_];
   temp_data_ = new complex[buffer_size_ * num_buffers_];
-  memset(values, 0, sizeof(values));
+
+  memset(filtered_values_, 0, sizeof(filtered_values_));
+  memset(detected_signal_, 0, sizeof(detected_signal_));
+  signal_ptr_ = 1;
 }
 
 MorseSignalDetector::~MorseSignalDetector() {
@@ -50,71 +59,6 @@ int MorseSignalDetector::SetAnalysisFile(
   return analysis_file_ != nullptr ? 0 : -1;
 }
 
-static std::vector<size_t> DispersionOld(const std::vector<double> &data,
-                                         size_t lag, double influence,
-                                         double threshold) {
-  std::vector<size_t> peak_indices;
-  std::vector<double> processed_data;
-  size_t start_offset = 0;
-  for (size_t i = 0; i < lag; ++i) {
-    processed_data.push_back(data[i + start_offset]);
-  }
-  for (size_t index = lag; index < data.size(); ++index) {
-    double avg = 0.0;
-    for (size_t i = index - lag; i < index; ++i) {
-      avg += processed_data[i];
-    }
-    avg /= lag;
-    double stdev = 0.0;
-    for (size_t i = index - lag; i < index; ++i) {
-      stdev += (processed_data[i] - avg) * (processed_data[i] - avg);
-    }
-    stdev = sqrt(stdev / lag);
-    double y = data[index + start_offset];
-    double value = y - avg;
-    if (value > stdev * threshold) {
-      peak_indices.push_back(index);
-      processed_data.push_back(influence * y +
-                               (1 - influence) * processed_data[index - 1]);
-    } else {
-      processed_data.push_back(y);
-    }
-  }
-  return peak_indices;
-}
-
-const size_t kLag = 5;
-static double processed_data[kLag];
-static size_t data_index = 0;
-static float toggle = -5e10;
-
-static int Dispersion(double y, double influence, double threshold) {
-  if (data_index < kLag) {
-    processed_data[data_index++] = y;
-    return false;
-  }
-  double avg = 0.0;
-  for (size_t i = 0; i < kLag; ++i) {
-    avg += processed_data[i];
-  }
-  avg /= kLag;
-  double stdev = 0.0;
-  for (size_t i = 0; i < kLag; ++i) {
-    stdev += (processed_data[i] - avg) * (processed_data[i] - avg);
-  }
-  stdev = sqrt(stdev / kLag);
-  double value = y - avg;
-  if (value > stdev * threshold) {
-    processed_data[data_index % kLag] =
-        influence * y +
-        (1 - influence) * processed_data[(data_index - 1) % kLag];
-    ++data_index;
-    return 1;
-  }
-  processed_data[data_index++ % kLag] = y;
-  return 0;
-}
-
 static size_t last_toggle_index = 0;
 static float peak = 1.e11;
 
@@ -127,74 +71,63 @@ void MorseSignalDetector::Process(short *buffers[], size_t current_buffer_size,
   size_t center = 12;
 
   const size_t kAnalysisSize = 100;
-  std::vector<double> data{kAnalysisSize};
+  std::vector<float> data{kAnalysisSize};
   for (size_t i = 0; i < kAnalysisSize; ++i) {
     data.push_back(Power(input_data_[i]));
   }
 
-  uint8_t value = 0;
+  uint8_t current_signal = 0;
 
-  // if (analysis_file_ != nullptr && window_count_ == 178 /* 4401 */) {
-  // auto peak_indices = DispersionOld(data, 3, 0.2, 5);
-  /*
-  float v = data[center] - 0.2 * data[center - 1] - 0.3 * data[center + 1] -
-            0.3 * data[center - 2] - 0.2 * data[center + 2];
-            */
-  float v = data[center] - 0.3 * data[center - 1] - 0.3 * data[center + 1] -
-            0.1 * data[center - 2] - 0.1 * data[center + 2];
+  // apply filter in frequency domain to retrieve peaks
+  float v = 0;
+  for (size_t i = 0; i < kFreqDomainFilterSize; ++i) {
+    v += data[center - kFreqDomainFilterSize / 2 + i] * kFreqDomainFilter[i];
+  }
+  // apply filter (moving average) in time domain to reduce noise
   float current_value = (v + prev_v + pprev_v /*+ ppprev_v*/) * 0.33;
-  // float current_intensity = (intensity + prev_intensity + pprev_intensity) *
-  // 0.33;
-  // bool on = current_value > 3.e10;
-  // int on = Dispersion(current_value, 0.0125, 5);
-  // bool on = !prev_on ? current_value > 3.e10 : current_value > 1.e10;
-  // double diff = (prev_v - v);
-  double diff = (ppprev_v + pprev_v - prev_v - v) * 0.5;
-  value = prev_value_;
-  if (value) {
+  float diff = (ppprev_v + pprev_v - prev_v - v) * 0.5;
+  /*
+  float current_value = (v + filtered_values_[0] + filtered_values_[1]) * 0.33;
+  float diff =
+      (filtered_values_[2] + filtered_values_[1] - filtered_values_[0] + v) *
+      0.5;
+      */
+  uint8_t prev_signal = detected_signal_[(signal_ptr_ - 2) % kDetectionDelay];
+  current_signal = prev_signal;
+  if (current_signal) {
     peak = std::max(peak, current_value);
   }
   if (window_count_ - last_toggle_index >= 15) {
-    if (diff / peak < -1.3 && prev_value_) {
+    if (diff / peak < -1.3 && prev_signal) {
       size_t dot_length =
           static_cast<size_t>(morse_reader_->GetEstimatedDotLength());
       if (dot_length > 5) {
         for (size_t i = 0; i < dot_length; ++i) {
-          values[(values_ptr - 1 - dot_length + i) % kDetectionDelay] = 0;
+          detected_signal_[(signal_ptr_ - 1 - dot_length + i) %
+                           kDetectionDelay] = 0;
         }
       }
-      toggle *= -1;
-    } else if (!prev_value_) {
+    } else if (!prev_signal) {
       if (current_value > 3.e10) {
-        value = 1;
+        current_signal = 1;
         peak = current_value;
       }
-    } else if (current_value < peak / 20 || diff > 1.e11 /*||
-               (current_value < peak / 5 && diff / peak > 0.3)*/) {
-      value = 0;
+    } else if (current_value < peak / 20 || diff > 1.e11) {
+      current_signal = 0;
     }
-    if (value != prev_value_) {
+    if (current_signal != prev_signal) {
       last_toggle_index = window_count_;
     }
   }
-  values[values_ptr == 0 ? kDetectionDelay - 1 : values_ptr - 1] = value;
-  /*
-  float real = input_data_[center].Re * input_data_[center].Re +
-               input_data_[center].Im * input_data_[center].Im;
-               */
+  detected_signal_[signal_ptr_ == 0 ? kDetectionDelay - 1 : signal_ptr_ - 1] =
+      current_signal;
   if (analysis_file_ != nullptr) {
-    fprintf(analysis_file_, "%ld %f %f %f %f\n", window_count_, current_value,
-            values[values_ptr] ? 1.e11 : 0, diff, toggle);
+    fprintf(analysis_file_, "%ld %f %f %f\n", window_count_, current_value,
+            detected_signal_[signal_ptr_] ? 1.e11 : 0, diff);
   }
   ppprev_v = pprev_v;
   pprev_v = prev_v;
   prev_v = v;
-  /*
-  for (size_t i = 2; i <= 4; ++i) {
-    fprintf(analysis_file_, "%ld %ld %f\n", window_count_, i, data[i]);
-    // fprintf(analysis_file_, "%ld %f\n", i, data[i]);
-  }
-  */
 #if 0
     int count = 0;
     for (size_t i = 0; i < peak_indices.size(); ++i) {
@@ -208,26 +141,28 @@ void MorseSignalDetector::Process(short *buffers[], size_t current_buffer_size,
     printf("%s", count > 0 ? "*" : "");
     fflush(stdout);
 #endif
-  // }
   ++window_count_;
 
   if (monitor != nullptr) {
-    monitor->AddSignal(value ? '^' : '_');
+    monitor->AddSignal(current_signal ? '^' : '_');
   }
 
   if (dump_file_ == nullptr && analysis_file_ == nullptr) {
-    bool some_changed = morse_reader_->Update(values[values_ptr]);
+    bool some_changed = morse_reader_->Update(detected_signal_[signal_ptr_]);
     if (some_changed && monitor != nullptr) {
       monitor->Dump(morse_reader_);
     }
   }
 
   if (dump_file_ != nullptr) {
-    fprintf(dump_file_, "%c", value ? '^' : '_');
+    fprintf(dump_file_, "%c", current_signal ? '^' : '_');
   }
 
-  prev_value_ = value;
-  values_ptr = (values_ptr + 1) % kDetectionDelay;
+  for (int i = kLookBackWindowSize; --i >= 1;) {
+    filtered_values_[i] = filtered_values_[i - 1];
+  }
+  filtered_values_[0] = v;
+  signal_ptr_ = (signal_ptr_ + 1) % kDetectionDelay;
 }
 
 void MorseSignalDetector::MakeBlackmanNuttallWindow(size_t window_size,
