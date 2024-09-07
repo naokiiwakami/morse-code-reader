@@ -15,16 +15,6 @@ static const size_t kFreqDomainFilterSize =
 
 static const float kThreshold = 2.0e12;
 
-static float ppprev_v = 0.0;
-static float pprev_v = 0.0;
-static float prev_v = 0.0;
-
-/*
-const size_t MorseSignalDetector::kDetectionDelay = 64;
-static uint8_t values[kDetectionDelay];
-static size_t values_ptr = 1;
-*/
-
 MorseSignalDetector::MorseSignalDetector(MorseReader *timing_tracker,
                                          size_t num_buffers, size_t buffer_size)
     : num_buffers_(num_buffers), buffer_size_(buffer_size),
@@ -35,6 +25,7 @@ MorseSignalDetector::MorseSignalDetector(MorseReader *timing_tracker,
   temp_data_ = new complex[buffer_size_ * num_buffers_];
 
   memset(filtered_values_, 0, sizeof(filtered_values_));
+  peak_ = 1.e11;
   memset(detected_signal_, 0, sizeof(detected_signal_));
   signal_ptr_ = 1;
 }
@@ -59,9 +50,6 @@ int MorseSignalDetector::SetAnalysisFile(
   return analysis_file_ != nullptr ? 0 : -1;
 }
 
-static size_t last_toggle_index = 0;
-static float peak = 1.e11;
-
 void MorseSignalDetector::Process(short *buffers[], size_t current_buffer_size,
                                   Monitor *monitor) {
   MakeInputData(input_data_, window_, buffers, current_buffer_size);
@@ -83,22 +71,25 @@ void MorseSignalDetector::Process(short *buffers[], size_t current_buffer_size,
   for (size_t i = 0; i < kFreqDomainFilterSize; ++i) {
     v += data[center - kFreqDomainFilterSize / 2 + i] * kFreqDomainFilter[i];
   }
-  // apply filter (moving average) in time domain to reduce noise
-  float current_value = (v + prev_v + pprev_v /*+ ppprev_v*/) * 0.33;
-  float diff = (ppprev_v + pprev_v - prev_v - v) * 0.5;
-  /*
+  // apply filter in time domain to reduce noise
   float current_value = (v + filtered_values_[0] + filtered_values_[1]) * 0.33;
+  // take value diff to detect rapid rise and drop
   float diff =
-      (filtered_values_[2] + filtered_values_[1] - filtered_values_[0] + v) *
+      (v + filtered_values_[0] - filtered_values_[1] - filtered_values_[2]) *
       0.5;
-      */
+
+  // detect signal for this window
   uint8_t prev_signal = detected_signal_[(signal_ptr_ - 2) % kDetectionDelay];
   current_signal = prev_signal;
   if (current_signal) {
-    peak = std::max(peak, current_value);
+    peak_ = std::max(peak_, current_value);
   }
-  if (window_count_ - last_toggle_index >= 15) {
-    if (diff / peak < -1.3 && prev_signal) {
+  if (window_count_ - last_toggled_ >= 15) {
+    float change_factor = diff / peak_;
+    if (change_factor > 1.3 && prev_signal) {
+      // Special case of detecting steep rise while the signal is on.
+      // It's likely the detector missed the previous drop due to noise in the
+      // source. The detected signal would be amended.
       size_t dot_length =
           static_cast<size_t>(morse_reader_->GetEstimatedDotLength());
       if (dot_length > 5) {
@@ -106,28 +97,33 @@ void MorseSignalDetector::Process(short *buffers[], size_t current_buffer_size,
           detected_signal_[(signal_ptr_ - 1 - dot_length + i) %
                            kDetectionDelay] = 0;
         }
+        prev_signal = 0;
       }
     } else if (!prev_signal) {
+      // TODO(Naoki): Is there a way to specify a relative value?
       if (current_value > 3.e10) {
         current_signal = 1;
-        peak = current_value;
+        peak_ = current_value;
       }
-    } else if (current_value < peak / 20 || diff > 1.e11) {
+    } else if (current_value < peak_ / 20 || change_factor < -1.3) {
+      // turn off signal when the value becomes low enough or whena steep drop
+      // is detected
       current_signal = 0;
     }
+
     if (current_signal != prev_signal) {
-      last_toggle_index = window_count_;
+      last_toggled_ = window_count_;
     }
   }
+
   detected_signal_[signal_ptr_ == 0 ? kDetectionDelay - 1 : signal_ptr_ - 1] =
       current_signal;
+
   if (analysis_file_ != nullptr) {
     fprintf(analysis_file_, "%ld %f %f %f\n", window_count_, current_value,
             detected_signal_[signal_ptr_] ? 1.e11 : 0, diff);
   }
-  ppprev_v = pprev_v;
-  pprev_v = prev_v;
-  prev_v = v;
+
 #if 0
     int count = 0;
     for (size_t i = 0; i < peak_indices.size(); ++i) {

@@ -95,16 +95,14 @@ bool WorldLine::ExtendBreak() {
   bool changed = false;
   if (line_state_ == LineState::LOW && clock_ > estimated_dot_length_ * 5) {
     AddBreak(false);
-    AddSpace();
+    // AddSpace();
     line_state_ = LineState::BREAK;
     changed = true;
   }
-  /*
-  if (line_state_ == LineState::BREAK && clock_ > estimated_dot_length_ * 16) {
-    Terminate();
+  if (line_state_ == LineState::BREAK && clock_ > estimated_dot_length_ * 7) {
+    AddSpace();
     changed = true;
   }
-  */
   return changed;
 }
 

@@ -29,8 +29,10 @@ private:
 
   // used for signal detection
   size_t window_count_ = 0;
+  size_t last_toggled_ = 0; // used to avoid chattering
   static const size_t kLookBackWindowSize = 3;
   float filtered_values_[kLookBackWindowSize];
+  float peak_; // used to scale values
 
   // the detector keeps the result for a while since it may be amended
   static const size_t kDetectionDelay = 64;
