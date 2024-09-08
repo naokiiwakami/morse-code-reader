@@ -23,7 +23,7 @@
 #include "morse_signal_detector.h"
 
 #define BUFFER_SIZE 256
-#define WINDOW_SIZE (BUFFER_SIZE * 2)
+#define DEFAULT_NUM_BUFFERS 2
 
 /**
  * Read morse signals from pattern file instead of analysing wav.
@@ -67,17 +67,44 @@ void ReadFile(int fd, ::morse::MorseReader *reader) {
 int main(int argc, char *argv[]) {
   // read arguments
   std::string pattern_file_name{};
+  std::string analysis_file_name{};
   bool verbose = false;
+  int mute = 0;
+  size_t center_freq = 12;
+  size_t num_buffers = DEFAULT_NUM_BUFFERS;
   while (true) {
     static struct option long_options[] = {
-        {"record", required_argument, nullptr, 'r'}, {0, 0, 0, 0}};
-    int c = getopt_long(argc, argv, "r:v", long_options, nullptr);
+        {"record", required_argument, nullptr, 'r'},
+        {"analyze", required_argument, nullptr, 'a'},
+        {"mute", no_argument, &mute, 1},
+        {"center-freq", required_argument, nullptr, 'f'},
+        {"num-buffers", required_argument, nullptr, 'b'},
+        {0, 0, 0, 0},
+    };
+    int c = getopt_long(argc, argv, "r:a:f:b:v", long_options, nullptr);
     if (c == -1) {
       break;
     }
     switch (c) {
     case 'r':
       pattern_file_name = optarg;
+      break;
+    case 'a':
+      analysis_file_name = optarg;
+      break;
+    case 'f':
+      center_freq = atol(optarg);
+      if (center_freq <= 2 || center_freq > 30) {
+        fprintf(stderr, "center frequency must be in the range of [3:20]\n");
+        return 1;
+      }
+      break;
+    case 'b':
+      num_buffers = atol(optarg);
+      if (num_buffers < 1) {
+        fprintf(stderr, "at least one buffer is necessary\n");
+        return 1;
+      }
       break;
     case 'v':
       verbose = true;
@@ -90,7 +117,14 @@ int main(int argc, char *argv[]) {
             basename(argv[0]));
     fprintf(stderr, "options:\n");
     fprintf(stderr,
-            "  --record <pattern_file> : Dump signal pattern to file\n");
+            "  --record|-r <pattern_file> : Dump signal pattern to file\n");
+    fprintf(
+        stderr,
+        "  --analyze|-a <plot_file>   : Print signal detection data to file\n");
+    fprintf(stderr, "  --mute                     : Stop sound output for "
+                    "faster execution\n");
+    fprintf(stderr, "  --center-freq|-f           : Specifies center "
+                    "frequency, default=12\n");
     exit(1);
   }
 
@@ -149,56 +183,78 @@ int main(int argc, char *argv[]) {
   }
 
   // setup buffers
-  short buffers[2][BUFFER_SIZE];
-  short *current_buffer;
-  short *prev_buffer;
-  prev_buffer = buffers[0];
-  current_buffer = buffers[1];
-  memset(prev_buffer, 0, sizeof(short));
-
-  // setup morse reader
-  auto *signal_detector =
-      new ::morse::MorseSignalDetector(morse_reader, BUFFER_SIZE);
-  signal_detector->Verbose(verbose);
-  if (!pattern_file_name.empty()) {
-    if (signal_detector->SetDumpFile(pattern_file_name) < 0) {
-      fprintf(stderr, "File open failed: %s (%s)\n", pattern_file_name.c_str(),
-              strerror(errno));
-      exit(-1);
-    }
+  std::vector<short *> buffers_mem{};
+  short **buffers = new short *[num_buffers];
+  for (size_t i = 0; i < num_buffers; ++i) {
+    buffers_mem.push_back(new short[BUFFER_SIZE]);
+    buffers[i] = buffers_mem[i];
+    memset(buffers[i], 0, sizeof(short) * BUFFER_SIZE);
   }
 
-  auto *monitor = new morse::Monitor();
+  short *current_buffer = buffers[num_buffers - 1];
+
+  // setup morse reader
+  auto *signal_detector = new ::morse::MorseSignalDetector(
+      morse_reader, num_buffers, BUFFER_SIZE, center_freq);
+  signal_detector->Verbose(verbose);
+  if (!pattern_file_name.empty() &&
+      signal_detector->SetDumpFile(pattern_file_name) < 0) {
+    fprintf(stderr, "File open failed: %s (%s)\n", pattern_file_name.c_str(),
+            strerror(errno));
+    exit(-1);
+  }
+  if (!analysis_file_name.empty() &&
+      signal_detector->SetAnalysisFile(analysis_file_name) < 0) {
+    fprintf(stderr, "File open failed: %s (%s)\n", analysis_file_name.c_str(),
+            strerror(errno));
+    exit(-1);
+  }
+
+  morse::Monitor *monitor = nullptr;
+  if (analysis_file_name.empty()) {
+    monitor = new morse::Monitor();
+  }
 
   // read and process data of approximately 6ms for each in the loop
-  bool first = true;
+  size_t num_windows = 0;
   sf_count_t num_samples;
   do {
     num_samples = sf_read_short(sndfile, current_buffer, BUFFER_SIZE);
 
-    if (pa_simple_write(pa, current_buffer,
-                        (size_t)(num_samples * sizeof(*current_buffer)),
-                        &error) < 0) {
-      fprintf(stderr, __FILE__ ": pa_simple_write() failed: %s\n",
-              pa_strerror(error));
-      if (pa) {
-        pa_simple_free(pa);
+    if (!mute) {
+      if (pa_simple_write(pa, current_buffer,
+                          (size_t)(num_samples * sizeof(*current_buffer)),
+                          &error) < 0) {
+        fprintf(stderr, __FILE__ ": pa_simple_write() failed: %s\n",
+                pa_strerror(error));
+        if (pa) {
+          pa_simple_free(pa);
+        }
+
+        return -1;
       }
-
-      return -1;
     }
 
-    if (!first) {
-      signal_detector->Process(prev_buffer, current_buffer, num_samples,
-                               monitor);
+    if (++num_windows >= num_buffers) {
+      signal_detector->Process(buffers, num_samples, monitor);
     }
-    first = false;
-    short *temp = prev_buffer;
-    prev_buffer = current_buffer;
+
+    short *temp = buffers[0];
+    for (size_t i = 1; i < num_buffers; ++i) {
+      buffers[i - 1] = buffers[i];
+    }
+    buffers[num_buffers - 1] = temp;
     current_buffer = temp;
 
   } while (num_samples == BUFFER_SIZE);
-  monitor->Dump(morse_reader);
+
+  signal_detector->Drain(monitor);
+
+  /*
+    if (monitor != nullptr) {
+      monitor->Dump(morse_reader);
+    }
+    */
 
   delete monitor;
 
@@ -213,6 +269,11 @@ int main(int argc, char *argv[]) {
   }
   delete signal_detector;
   sf_close(sndfile);
+
+  delete[] buffers;
+  for (auto buffer : buffers_mem) {
+    delete[] buffer;
+  }
 
   return 0;
 }

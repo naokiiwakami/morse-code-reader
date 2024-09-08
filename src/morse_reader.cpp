@@ -21,10 +21,11 @@ MorseReader::MorseReader()
 
 MorseReader::~MorseReader() = default;
 
-void MorseReader::Update(uint8_t level) {
+bool MorseReader::Update(uint8_t level) {
   WorldLine *current = reinterpret_cast<WorldLine *>(observer_->next_);
+  bool some_changed = false;
   while (current != nullptr) {
-    current->Update(level);
+    some_changed |= current->Update(level);
     current = current->Next();
   }
 
@@ -39,7 +40,8 @@ void MorseReader::Update(uint8_t level) {
     current = current->Next();
   }
 
-  bool do_square = num_scans_since_startup_++ > 10;
+  // bool do_square = num_scans_since_startup_++ > 10;
+  bool do_square = false;
 
   // iterate again to drop world lines that are not confident enough
   current = reinterpret_cast<WorldLine *>(observer_->next_);
@@ -57,6 +59,12 @@ void MorseReader::Update(uint8_t level) {
   for (auto *world_line : to_delete) {
     delete world_line;
   }
+  return some_changed;
+}
+
+double MorseReader::GetEstimatedDotLength() {
+  WorldLine *first = reinterpret_cast<WorldLine *>(observer_->next_);
+  return first != nullptr ? first->GetDotLength() : 0.0;
 }
 
 void MorseReader::Dump() {
@@ -91,11 +99,17 @@ void MorseReader::Dumpw(int width, int height, WINDOW *window) {
 
   int irow = 0;
   for (auto *world_line : candidates) {
-    double ratio = 1.0 / world_line->GetConfidence();
-    mvwprintw(window, irow++, 0, "(%f) %f : %s", ratio,
-              world_line->GetConfidence(), world_line->GetCharacters().c_str());
-    mvwprintw(window, irow++, 4, "%s", world_line->GetSignals().c_str());
+    // double ratio = 1.0 / world_line->GetConfidence();
+    wmove(window, irow++, 0);
+    wclrtoeol(window);
+    wprintw(window, "(%f) %f : %s", world_line->GetDotLength(),
+            world_line->GetConfidence(), world_line->GetCharacters().c_str());
+    wmove(window, irow++, 4);
+    wclrtoeol(window);
+    wprintw(window, "%s", world_line->GetSignals().c_str());
+    ++irow;
   }
+  refresh();
 }
 
 } // namespace morse

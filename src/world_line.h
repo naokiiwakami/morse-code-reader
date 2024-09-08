@@ -37,7 +37,7 @@ public:
   WorldLine(const WorldLine &src);
   ~WorldLine() = default;
 
-  void Update(uint8_t level);
+  bool Update(uint8_t level);
 
   void ChildRemoved();
 
@@ -45,9 +45,12 @@ public:
 
   inline const std::string &GetSignals() const { return signals_; }
   inline const std::string &GetCharacters() const { return characters_; }
-  inline const double GetConfidence() const { return confidence_score_; }
+  inline double GetDotLength() const { return estimated_dot_length_; }
+  inline double GetConfidence() const { return confidence_score_; }
   void NormalizeConfidence(double scale, bool do_square) {
-    confidence_score_ /= scale;
+    if (scale != 0.0) {
+      confidence_score_ /= scale;
+    }
     if (do_square) {
       confidence_score_ *= confidence_score_;
     }
@@ -56,7 +59,7 @@ public:
 private:
   void Rise();
   void Drop();
-  void ExtendBreak();
+  bool ExtendBreak();
 
   void AddDot();
   void AddDash();

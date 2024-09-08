@@ -45,7 +45,9 @@ public:
   MorseReader();
   virtual ~MorseReader();
 
-  void Update(uint8_t level);
+  bool Update(uint8_t level);
+
+  double GetEstimatedDotLength();
 
   void Dump();
   void Dumpw(int width, int height, WINDOW *window);
