@@ -101,6 +101,7 @@ bool WorldLine::ExtendBreak() {
   }
   if (line_state_ == LineState::BREAK && clock_ > estimated_dot_length_ * 7) {
     AddSpace();
+    line_state_ = LineState::IDLE;
     changed = true;
   }
   return changed;
